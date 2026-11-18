@@ -4,6 +4,7 @@ import { useAppDispatch, useAppSelector } from '../../../app/hooks';
 import { Button } from '../../../components/Button';
 import { fieldAria, inputClassName } from '../../../components/styles';
 import { FormField } from '../../../components/FormField';
+import { PriceInput } from '../../../components/PriceInput';
 import type { Product } from '../../../types/product';
 import { isAppError, MESSAGES } from '../../../utils/errorMessages';
 import { formatDate } from '../../../utils/formatters';
@@ -118,14 +119,16 @@ export function ProductFormDialog({ open, product, onClose }: ProductFormDialogP
           </FormField>
 
           <div className="grid grid-cols-2 gap-4">
-            <FormField id="product-price" label="Precio (COP)" required error={errorOf('price')}>
-              <input
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step="0.01"
-                className={inputClassName(Boolean(errorOf('price')))}
-                {...fieldAria('product-price', errorOf('price'))}
+            <FormField
+              id="product-price"
+              label="Precio (COP)"
+              required
+              error={errorOf('price')}
+              hint="Ej.: 1.000 = mil pesos"
+            >
+              <PriceInput
+                hasError={Boolean(errorOf('price'))}
+                {...fieldAria('product-price', errorOf('price'), 'hint')}
                 {...register('price', productRules.price)}
               />
             </FormField>

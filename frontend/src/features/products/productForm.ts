@@ -1,6 +1,10 @@
 import type { CreateProductRequest, Product, UpdateProductRequest } from '../../types/product';
+import { parsePriceInput, priceToInput } from '../../utils/formatters';
 
-/** Form state. Numbers are kept as text so partial input and decimals validate exactly. */
+/**
+ * Form state. Numbers are kept as text so partial input and decimals validate exactly.
+ * `price` uses the Colombian format shown in the input ("1.500,50").
+ */
 export interface ProductFormValues {
   name: string;
   sku: string;
@@ -15,7 +19,7 @@ export function toFormValues(product: Product | null): ProductFormValues {
   return {
     name: product?.name ?? '',
     sku: product?.sku ?? '',
-    price: product ? String(product.price) : '',
+    price: product ? priceToInput(product.price) : '',
     stock: product ? String(product.stock) : '',
     category: product?.category ?? '',
     description: product?.description ?? '',
@@ -45,7 +49,10 @@ export const productRules = {
   price: {
     validate: (value: string) => {
       if (value.trim() === '') return 'El precio es obligatorio.';
-      return /^\d+(\.\d{1,2})?$/.test(value.trim()) || 'Ingresa un número mayor o igual a 0, con máximo 2 decimales.';
+      return (
+        parsePriceInput(value) !== null ||
+        'Ingresa un valor en pesos: punto para miles y coma para decimales (máximo 2). Ej.: 1.500,50'
+      );
     },
   },
   stock: {
@@ -62,7 +69,7 @@ function normalize(values: ProductFormValues) {
   return {
     name: values.name.trim(),
     sku: values.sku.trim().toUpperCase(),
-    price: Number(values.price),
+    price: parsePriceInput(values.price) ?? Number.NaN,
     stock: Number(values.stock),
     category: values.category.trim(),
     description: values.description.trim(),
