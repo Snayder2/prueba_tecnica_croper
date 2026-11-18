@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+/* Theme from docs/specs/02-frontend.md §14. Never put white text on brand-500 (2.2:1). */
+@theme {
+  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+
+  /* Verde principal */
+  --color-brand-50:  #ebfbf1;
+  --color-brand-100: #d6f6e3;
+  --color-brand-200: #adedc8;
+  --color-brand-300: #7ae2a6;
+  --color-brand-400: #3dd57c;
+  --color-brand-500: #00c853;
+  --color-brand-600: #00aa47;
+  --color-brand-700: #008838;
+  --color-brand-800: #00682b;
+  --color-brand-900: #004c20;
+
+  /* Azul marino */
+  --color-navy-50:  #edeff1;
+  --color-navy-100: #dadee2;
+  --color-navy-200: #b5bec6;
+  --color-navy-300: #8795a2;
+  --color-navy-400: #506477;
+  --color-navy-500: #19334c;
+  --color-navy-600: #152b41;
+  --color-navy-700: #112334;
+  --color-navy-800: #0d1b28;
+  --color-navy-900: #0a131d;
+
+  /* Verde hoja */
+  --color-leaf-50:  #f1f7ec;
+  --color-leaf-100: #e2efd9;
+  --color-leaf-500: #4a9e12;
+  --color-leaf-600: #3f860f;
+  --color-leaf-700: #326b0c;
+  --color-leaf-800: #265209;
+
+  /* Texto */
+  --color-ink: #273238;
+}
+
+@layer base {
+  body {
+    @apply bg-navy-50 text-ink font-sans antialiased;
+  }
+}

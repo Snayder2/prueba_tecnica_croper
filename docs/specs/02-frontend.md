@@ -39,6 +39,7 @@ Se evaluará especialmente la organización del frontend, el manejo de estado y 
 | Componentes accesibles | Headless UI | Diálogos y menús accesibles (foco, tecla Escape, `aria-*`) sin imponer estilos, para pintarlos con Tailwind. |
 | Formularios | React Hook Form | Validación en el cliente con poco código y buen rendimiento. |
 | Tests | Vitest + React Testing Library | Integrados con Vite. |
+| Lint | oxlint | Viene en la plantilla actual de Vite (igual que en el backend). Incluye una regla que impide importar `axios` fuera de `src/api/`. |
 
 ## 4. Manejo de estado
 

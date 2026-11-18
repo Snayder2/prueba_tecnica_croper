@@ -195,38 +195,35 @@ La app valida estas variables al arrancar y falla con un mensaje claro si falta 
 ## 10. Estructura de carpetas
 
 ```
-backend/
-├── src/
-│   ├── main.ts                     # bootstrap: prefijo, pipes, helmet, CORS, Swagger
-│   ├── app.module.ts
-│   ├── config/
-│   │   └── env.validation.ts       # validación de variables de entorno
-│   ├── common/
-│   │   ├── dto/pagination-query.dto.ts
-│   │   ├── filters/http-exception.filter.ts   # formato único de errores + duplicados → 409
-│   │   ├── pipes/parse-object-id.pipe.ts
-│   │   └── interfaces/paginated-response.interface.ts
-│   ├── auth/
-│   │   ├── auth.module.ts
-│   │   ├── auth.controller.ts
-│   │   ├── auth.service.ts
-│   │   ├── dto/ (register.dto.ts, login.dto.ts)
-│   │   ├── strategies/jwt.strategy.ts
-│   │   ├── guards/jwt-auth.guard.ts
-│   │   └── decorators/current-user.decorator.ts
-│   ├── users/
-│   │   ├── users.module.ts
-│   │   ├── users.service.ts
-│   │   └── schemas/user.schema.ts
-│   └── products/
-│       ├── products.module.ts
-│       ├── products.controller.ts
-│       ├── products.service.ts
-│       ├── dto/ (create-product.dto.ts, update-product.dto.ts, query-products.dto.ts)
-│       └── schemas/product.schema.ts
-├── test/
-├── .env.example
-└── README.md
+backend/src/
+├── main.ts
+├── app.module.ts
+├── config/
+│   └── env.validation.ts
+├── common/
+│   ├── dto/
+│   ├── filters/
+│   ├── pipes/
+│   └── interfaces/
+└── modules/
+    ├── auth/
+    │   ├── auth.module.ts
+    │   ├── auth.controller.ts
+    │   ├── auth.service.ts
+    │   ├── dto/
+    │   ├── strategies/
+    │   ├── guards/
+    │   └── decorators/
+    ├── users/
+    │   ├── users.module.ts
+    │   ├── users.service.ts
+    │   └── schemas/
+    └── products/
+        ├── products.module.ts
+        ├── products.controller.ts
+        ├── products.service.ts
+        ├── dto/
+        └── schemas/
 ```
 
 Principio: los controladores solo reciben y responden; la lógica va en los servicios; el acceso a datos va por los modelos de Mongoose inyectados en los servicios.

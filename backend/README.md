@@ -133,9 +133,10 @@ src/
 ├── app.setup.ts            # prefijo, helmet, CORS, ValidationPipe, filtro (compartido con e2e)
 ├── config/                 # validación de entorno y Swagger
 ├── common/                 # filtro de errores, ParseObjectIdPipe, paginación, utilidades
-├── auth/                   # registro, login, JWT strategy/guard, @CurrentUser
-├── users/                  # schema y servicio de usuarios
-├── products/               # schema, DTOs, servicio y controlador
+├── modules/
+│   ├── auth/               # registro, login, JWT strategy/guard, @CurrentUser
+│   ├── users/              # schema y servicio de usuarios
+│   └── products/           # schema, DTOs, servicio y controlador
 └── scripts/export-openapi.ts
 test/app.e2e-spec.ts        # criterios de aceptación de la spec §11
 ```

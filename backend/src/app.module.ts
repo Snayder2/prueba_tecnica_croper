@@ -3,10 +3,10 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { AuthModule } from './auth/auth.module.js';
+import { AuthModule } from './modules/auth/auth.module.js';
 import { EnvironmentVariables, validateEnv } from './config/env.validation.js';
-import { ProductsModule } from './products/products.module.js';
-import { UsersModule } from './users/users.module.js';
+import { ProductsModule } from './modules/products/products.module.js';
+import { UsersModule } from './modules/users/users.module.js';
 
 @Module({
   imports: [

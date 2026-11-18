@@ -48,7 +48,16 @@ Detalle de variables, tests y ejemplos en [backend/README.md](backend/README.md)
 
 ## Cómo ejecutar el frontend
 
-Pendiente.
+```bash
+cd frontend
+npm install
+cp .env.example .env
+npm run dev
+```
+
+App: http://localhost:5173 (puerto fijo: es el origen que permite el CORS del backend). Si el backend no usa el puerto 3000, ajusta `VITE_API_URL` en `frontend/.env`.
+
+Detalle, capturas y decisiones en [frontend/README.md](frontend/README.md).
 
 ## Documentación
 
