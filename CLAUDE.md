@@ -9,7 +9,7 @@ A Full Stack technical test for Croper. Development is **spec-driven**: each exe
 - `docs/specs/01-backend.md` — Exercise 1: Products REST API (NestJS + MongoDB). Read it before touching backend code.
 - `docs/ia/uso-de-ia.md` — deliverable log of how AI was used (prompts, validation, corrections). Sections marked **[COMPLETAR]** are for the user to fill in with what actually happened; don't invent content for them.
 
-Current state: only specs exist. The backend (`backend/`) has not been scaffolded yet.
+Current state: the backend implements all tasks of `docs/specs/01-backend.md` §12. The frontend is pending. `backend/src/app.setup.ts` holds the HTTP setup shared by `main.ts` and the e2e tests. `npm run test:e2e` checks the §11 criteria against a local MongoDB (database `productos_db_e2e`). Mongoose `@Prop`s declare `type` explicitly, so schemas don't depend on decorator metadata (older Vitest/esbuild setups don't emit it). Keep Vitest ≥4 and Vite ≥8: `npm audit fix --force` downgrades them and breaks DI and validation in tests.
 
 ## How to work on spec tasks
 
@@ -20,9 +20,9 @@ Section 12 of the backend spec lists numbered implementation tasks. The user ask
 - Out of scope (don't add): roles/permissions, refresh tokens, image upload, cloud deployment.
 - Open decisions in §13 (hard vs soft delete, open registration, protected GETs) are the user's call; the spec currently picks hard delete, open registration and all product endpoints protected.
 
-## Backend commands (once `backend/` exists)
+## Backend commands
 
-Run from `backend/`. Spec-required scripts: `npm test` (Jest unit tests for `ProductsService` and `AuthService`), `npm run lint`, and `npm run docs:export` (writes `docs/openapi.json`, which must be kept in sync with the API). Standard NestJS scripts are expected for the rest (`npm run start:dev`, `npm run build`); confirm them in `package.json`. To run a single test file: `npm test -- products.service`.
+Run from `backend/`. The project is NestJS 12: ESM-only (relative imports end in `.js`), tests on Vitest (`vi.fn()`, not `jest.fn()`), and lint with oxlint. Spec-required scripts: `npm test` (Vitest unit tests for `ProductsService` and `AuthService`), `npm run lint`, and `npm run docs:export` (writes `docs/openapi.json`, which must be kept in sync with the API). Standard NestJS scripts are expected for the rest (`npm run start:dev`, `npm run build`); confirm them in `package.json`. To run a single test file: `npm test -- products.service`.
 
 Requires a local MongoDB (Community Server, no auth) at the `MONGO_URI` in `.env`. Copy `.env.example` → `.env`. The required variables are `PORT`, `MONGO_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN` and `CORS_ORIGIN`, and the app must refuse to start if `JWT_SECRET` or `MONGO_URI` is missing.
 

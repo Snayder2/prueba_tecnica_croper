@@ -38,7 +38,7 @@ Se evaluará estructura, buenas prácticas, seguridad y claridad en el diseño.
 | Documentación | `@nestjs/swagger` | Requisito. Genera la doc desde los decoradores. |
 | Configuración | `@nestjs/config` + validación de variables al arrancar | La app no arranca si falta una variable crítica. |
 | Seguridad extra | `helmet`, `@nestjs/throttler`, CORS restringido | Headers seguros y protección contra fuerza bruta. |
-| Tests | Jest (incluido en NestJS) | Unit tests del servicio de productos y auth. |
+| Tests | Vitest (incluido en NestJS 12) | Unit tests del servicio de productos y auth. NestJS 12 es ESM-only y su CLI trae Vitest y oxlint por defecto. |
 
 ## 4. Modelo de datos
 

@@ -1,0 +1,1423 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/auth/register": {
+      "post": {
+        "description": "Registro abierto. La respuesta nunca incluye la contraseña.",
+        "operationId": "AuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Usuario creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Datos inválidos",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": [
+                        "email must be an email",
+                        "password must contain at least one letter and one number"
+                      ],
+                      "path": "/api/v1/auth/register",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "El email ya está registrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Email duplicado",
+                    "value": {
+                      "statusCode": 409,
+                      "error": "Conflict",
+                      "message": "Email already registered",
+                      "path": "/api/v1/auth/register",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Límite global de peticiones superado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Demasiadas peticiones",
+                    "value": {
+                      "statusCode": 429,
+                      "error": "Too Many Requests",
+                      "message": "Too many requests",
+                      "path": "/api/v1/auth/register",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Registrar un usuario",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "description": "Devuelve el JWT. Cópialo en **Authorize** para probar los endpoints protegidos. Límite: 5 intentos por minuto por IP.",
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Credenciales válidas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Datos inválidos",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": [
+                        "email must be an email"
+                      ],
+                      "path": "/api/v1/auth/login",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Email o contraseña incorrectos (mensaje genérico)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Credenciales incorrectas",
+                    "value": {
+                      "statusCode": 401,
+                      "error": "Unauthorized",
+                      "message": "Invalid credentials",
+                      "path": "/api/v1/auth/login",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Más de 5 intentos por minuto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Demasiadas peticiones",
+                    "value": {
+                      "statusCode": 429,
+                      "error": "Too Many Requests",
+                      "message": "Too many requests",
+                      "path": "/api/v1/auth/login",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Iniciar sesión",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "AuthController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Usuario del token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token, token inválido o expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "No autenticado",
+                    "value": {
+                      "statusCode": 401,
+                      "error": "Unauthorized",
+                      "message": "Unauthorized",
+                      "path": "/api/v1/auth/me",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Límite global de peticiones superado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Demasiadas peticiones",
+                    "value": {
+                      "statusCode": 429,
+                      "error": "Too Many Requests",
+                      "message": "Too many requests",
+                      "path": "/api/v1/auth/me",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Datos del usuario autenticado",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/products": {
+      "post": {
+        "description": "`isActive` es `true` por defecto. El `sku` debe ser único.",
+        "operationId": "ProductsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Producto creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos inválidos o campos no permitidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Datos inválidos",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": [
+                        "price must not be less than 0",
+                        "sku must match /^[A-Z0-9-]+$/ regular expression"
+                      ],
+                      "path": "/api/v1/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  },
+                  "case2": {
+                    "summary": "Campo no permitido",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": [
+                        "property foo should not exist"
+                      ],
+                      "path": "/api/v1/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token, token inválido o expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "No autenticado",
+                    "value": {
+                      "statusCode": 401,
+                      "error": "Unauthorized",
+                      "message": "Unauthorized",
+                      "path": "/api/v1/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Ya existe un producto con ese SKU",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "SKU duplicado",
+                    "value": {
+                      "statusCode": 409,
+                      "error": "Conflict",
+                      "message": "SKU already exists",
+                      "path": "/api/v1/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Límite global de peticiones superado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Demasiadas peticiones",
+                    "value": {
+                      "statusCode": 429,
+                      "error": "Too Many Requests",
+                      "message": "Too many requests",
+                      "path": "/api/v1/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Crear un producto",
+        "tags": [
+          "Products"
+        ]
+      },
+      "get": {
+        "description": "Lista paginada. `search` busca en el nombre sin distinguir mayúsculas ni tildes. Si `page` supera `totalPages`, devuelve `data: []` con el `meta` correcto.",
+        "operationId": "ProductsController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Número de página (empieza en 1)",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "example": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Elementos por página",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "example": 10,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Texto a buscar en el nombre (sin distinguir mayúsculas ni tildes)",
+            "schema": {
+              "maxLength": 100,
+              "example": "cafe",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "description": "Campo de ordenamiento",
+            "schema": {
+              "default": "createdAt",
+              "example": "price",
+              "type": "string",
+              "enum": [
+                "name",
+                "price",
+                "stock",
+                "createdAt"
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "description": "Dirección del ordenamiento",
+            "schema": {
+              "default": "desc",
+              "example": "asc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista paginada de productos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedProductsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Parámetros de consulta inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "limit fuera de rango",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": [
+                        "limit must not be greater than 100"
+                      ],
+                      "path": "/api/v1/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  },
+                  "case2": {
+                    "summary": "sortBy no permitido",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": [
+                        "sortBy must be one of the following values: name, price, stock, createdAt"
+                      ],
+                      "path": "/api/v1/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token, token inválido o expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "No autenticado",
+                    "value": {
+                      "statusCode": 401,
+                      "error": "Unauthorized",
+                      "message": "Unauthorized",
+                      "path": "/api/v1/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Límite global de peticiones superado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Demasiadas peticiones",
+                    "value": {
+                      "statusCode": 429,
+                      "error": "Too Many Requests",
+                      "message": "Too many requests",
+                      "path": "/api/v1/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar productos",
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/api/v1/products/{id}": {
+      "get": {
+        "operationId": "ProductsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ObjectId del producto (24 caracteres hexadecimales)",
+            "schema": {
+              "example": "6739f3b2c4e5b8a9d0f12346",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Producto encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "id con formato inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "id con formato inválido",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": "Invalid id",
+                      "path": "/api/v1/products/abc",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token, token inválido o expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "No autenticado",
+                    "value": {
+                      "statusCode": 401,
+                      "error": "Unauthorized",
+                      "message": "Unauthorized",
+                      "path": "/api/v1/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "El producto no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Producto no encontrado",
+                    "value": {
+                      "statusCode": 404,
+                      "error": "Not Found",
+                      "message": "Product not found",
+                      "path": "/api/v1/products/6739f3b2c4e5b8a9d0f12346",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Límite global de peticiones superado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Demasiadas peticiones",
+                    "value": {
+                      "statusCode": 429,
+                      "error": "Too Many Requests",
+                      "message": "Too many requests",
+                      "path": "/api/v1/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener un producto por id",
+        "tags": [
+          "Products"
+        ]
+      },
+      "patch": {
+        "description": "Solo se modifican los campos enviados. `null` borra `description` o `category`.",
+        "operationId": "ProductsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ObjectId del producto (24 caracteres hexadecimales)",
+            "schema": {
+              "example": "6739f3b2c4e5b8a9d0f12346",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Producto actualizado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos o id inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Datos inválidos",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": [
+                        "price must not be less than 0",
+                        "sku must match /^[A-Z0-9-]+$/ regular expression"
+                      ],
+                      "path": "/api/v1/products/6739f3b2c4e5b8a9d0f12346",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  },
+                  "case2": {
+                    "summary": "Campo no permitido",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": [
+                        "property foo should not exist"
+                      ],
+                      "path": "/api/v1/products/6739f3b2c4e5b8a9d0f12346",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  },
+                  "case3": {
+                    "summary": "id con formato inválido",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": "Invalid id",
+                      "path": "/api/v1/products/6739f3b2c4e5b8a9d0f12346",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token, token inválido o expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "No autenticado",
+                    "value": {
+                      "statusCode": 401,
+                      "error": "Unauthorized",
+                      "message": "Unauthorized",
+                      "path": "/api/v1/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "El producto no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Producto no encontrado",
+                    "value": {
+                      "statusCode": 404,
+                      "error": "Not Found",
+                      "message": "Product not found",
+                      "path": "/api/v1/products/6739f3b2c4e5b8a9d0f12346",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Ya existe un producto con ese SKU",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "SKU duplicado",
+                    "value": {
+                      "statusCode": 409,
+                      "error": "Conflict",
+                      "message": "SKU already exists",
+                      "path": "/api/v1/products/6739f3b2c4e5b8a9d0f12346",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Límite global de peticiones superado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Demasiadas peticiones",
+                    "value": {
+                      "statusCode": 429,
+                      "error": "Too Many Requests",
+                      "message": "Too many requests",
+                      "path": "/api/v1/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Actualizar parcialmente un producto",
+        "tags": [
+          "Products"
+        ]
+      },
+      "delete": {
+        "description": "Eliminación física.",
+        "operationId": "ProductsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ObjectId del producto (24 caracteres hexadecimales)",
+            "schema": {
+              "example": "6739f3b2c4e5b8a9d0f12346",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Producto eliminado (sin cuerpo)"
+          },
+          "400": {
+            "description": "id con formato inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "id con formato inválido",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": "Invalid id",
+                      "path": "/api/v1/products/abc",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token, token inválido o expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "No autenticado",
+                    "value": {
+                      "statusCode": 401,
+                      "error": "Unauthorized",
+                      "message": "Unauthorized",
+                      "path": "/api/v1/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "El producto no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Producto no encontrado",
+                    "value": {
+                      "statusCode": 404,
+                      "error": "Not Found",
+                      "message": "Product not found",
+                      "path": "/api/v1/products/6739f3b2c4e5b8a9d0f12346",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Límite global de peticiones superado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Demasiadas peticiones",
+                    "value": {
+                      "statusCode": 429,
+                      "error": "Too Many Requests",
+                      "message": "Too many requests",
+                      "path": "/api/v1/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Eliminar un producto",
+        "tags": [
+          "Products"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "API de Productos",
+    "description": "API REST para gestionar productos (NestJS + MongoDB).\n\n**Cómo probarla desde aquí**\n1. `POST /auth/register`: crea un usuario.\n2. `POST /auth/login`: copia el `accessToken` de la respuesta.\n3. Pulsa **Authorize**, pega el token y prueba los endpoints de `Products`.\n\nTodos los errores usan el mismo formato (`ErrorResponseDto`).",
+    "version": "1.0.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Registro, inicio de sesión y usuario actual"
+    },
+    {
+      "name": "Products",
+      "description": "CRUD de productos (requiere JWT)"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "description": "Token obtenido en POST /auth/login"
+      }
+    },
+    "schemas": {
+      "RegisterDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email (se guarda en minúsculas)",
+            "example": "ana@correo.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "Mínimo 8 caracteres, con al menos una letra y un número",
+            "format": "password",
+            "minLength": 8,
+            "pattern": "^(?=.*[A-Za-z])(?=.*\\d).+$",
+            "example": "Clave1234"
+          },
+          "name": {
+            "type": "string",
+            "description": "Nombre del usuario",
+            "minLength": 2,
+            "maxLength": 60,
+            "example": "Ana Pérez"
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "name"
+        ]
+      },
+      "UserResponseDto": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "description": "ObjectId del usuario",
+            "example": "6739f2a1c4e5b8a9d0f12345"
+          },
+          "email": {
+            "type": "string",
+            "example": "ana@correo.com"
+          },
+          "name": {
+            "type": "string",
+            "example": "Ana Pérez"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-17T21:30:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-17T21:30:00.000Z"
+          }
+        },
+        "required": [
+          "_id",
+          "email",
+          "name",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ErrorResponseDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "description": "Código HTTP",
+            "example": 400
+          },
+          "error": {
+            "type": "string",
+            "description": "Nombre del código HTTP",
+            "example": "Bad Request"
+          },
+          "message": {
+            "description": "Arreglo de mensajes en errores de validación (cada uno empieza con el nombre del campo); texto en los demás errores",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ],
+            "example": [
+              "price must not be less than 0"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "description": "Ruta de la petición",
+            "example": "/api/v1/products"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "Fecha del error (ISO 8601, UTC)",
+            "format": "date-time",
+            "example": "2026-11-17T21:30:00.000Z"
+          }
+        },
+        "required": [
+          "statusCode",
+          "error",
+          "message",
+          "path",
+          "timestamp"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "ana@correo.com"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "example": "Clave1234"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "LoginResponseDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "JWT para el header Authorization",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "tokenType": {
+            "type": "string",
+            "enum": [
+              "Bearer"
+            ],
+            "example": "Bearer"
+          },
+          "expiresIn": {
+            "type": "number",
+            "description": "Vigencia del token en segundos",
+            "example": 3600
+          }
+        },
+        "required": [
+          "accessToken",
+          "tokenType",
+          "expiresIn"
+        ]
+      },
+      "CreateProductDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Nombre del producto (sin espacios al inicio ni al final)",
+            "minLength": 3,
+            "maxLength": 100,
+            "example": "Fertilizante NPK 15-15-15 50 kg"
+          },
+          "description": {
+            "type": "string",
+            "description": "Descripción del producto",
+            "maxLength": 500,
+            "example": "Fertilizante compuesto para cultivos de ciclo corto"
+          },
+          "price": {
+            "type": "number",
+            "description": "Precio. Mayor o igual a 0, con máximo 2 decimales",
+            "minimum": 0,
+            "example": 145000
+          },
+          "stock": {
+            "type": "integer",
+            "description": "Unidades disponibles (entero mayor o igual a 0)",
+            "minimum": 0,
+            "example": 40
+          },
+          "category": {
+            "type": "string",
+            "description": "Categoría del producto",
+            "maxLength": 50,
+            "example": "Fertilizantes"
+          },
+          "sku": {
+            "type": "string",
+            "description": "Código único: letras mayúsculas, números y guiones",
+            "minLength": 3,
+            "maxLength": 30,
+            "pattern": "^[A-Z0-9-]+$",
+            "example": "FER-NPK-50"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Si el producto está activo",
+            "default": true,
+            "example": true
+          }
+        },
+        "required": [
+          "name",
+          "price",
+          "stock",
+          "sku"
+        ]
+      },
+      "ProductResponseDto": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "description": "ObjectId del producto",
+            "example": "6739f3b2c4e5b8a9d0f12346"
+          },
+          "name": {
+            "type": "string",
+            "example": "Café de origen Huila 500 g"
+          },
+          "description": {
+            "type": "string",
+            "example": "Café especial tostado medio"
+          },
+          "price": {
+            "type": "number",
+            "example": 32000
+          },
+          "stock": {
+            "type": "integer",
+            "example": 120
+          },
+          "category": {
+            "type": "string",
+            "example": "Café"
+          },
+          "sku": {
+            "type": "string",
+            "example": "CAF-HUI-500"
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-17T21:35:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-17T21:35:00.000Z"
+          }
+        },
+        "required": [
+          "_id",
+          "name",
+          "price",
+          "stock",
+          "sku",
+          "isActive",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PaginationMetaDto": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "number",
+            "description": "Página actual",
+            "example": 1
+          },
+          "limit": {
+            "type": "number",
+            "description": "Elementos por página",
+            "example": 10
+          },
+          "total": {
+            "type": "number",
+            "description": "Total de elementos que cumplen el filtro",
+            "example": 42
+          },
+          "totalPages": {
+            "type": "number",
+            "description": "Total de páginas",
+            "example": 5
+          }
+        },
+        "required": [
+          "page",
+          "limit",
+          "total",
+          "totalPages"
+        ]
+      },
+      "PaginatedProductsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductResponseDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "UpdateProductDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Nombre del producto (sin espacios al inicio ni al final)",
+            "minLength": 3,
+            "maxLength": 100,
+            "example": "Fertilizante NPK 15-15-15 50 kg"
+          },
+          "description": {
+            "type": "string",
+            "description": "Descripción del producto",
+            "maxLength": 500,
+            "example": "Fertilizante compuesto para cultivos de ciclo corto"
+          },
+          "price": {
+            "type": "number",
+            "description": "Precio. Mayor o igual a 0, con máximo 2 decimales",
+            "minimum": 0,
+            "example": 145000
+          },
+          "stock": {
+            "type": "integer",
+            "description": "Unidades disponibles (entero mayor o igual a 0)",
+            "minimum": 0,
+            "example": 40
+          },
+          "category": {
+            "type": "string",
+            "description": "Categoría del producto",
+            "maxLength": 50,
+            "example": "Fertilizantes"
+          },
+          "sku": {
+            "type": "string",
+            "description": "Código único: letras mayúsculas, números y guiones",
+            "minLength": 3,
+            "maxLength": 30,
+            "pattern": "^[A-Z0-9-]+$",
+            "example": "FER-NPK-50"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Si el producto está activo",
+            "default": true,
+            "example": true
+          }
+        }
+      }
+    }
+  }
+}

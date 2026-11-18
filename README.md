@@ -44,6 +44,8 @@ npm run start:dev
 
 Swagger: http://localhost:3000/api/docs
 
+Detalle de variables, tests y ejemplos en [backend/README.md](backend/README.md).
+
 ## Cómo ejecutar el frontend
 
 Pendiente.
@@ -53,6 +55,7 @@ Pendiente.
 - [Especificación del backend](docs/specs/01-backend.md)
 - [Especificación del frontend](docs/specs/02-frontend.md)
 - [Contrato de la API](docs/specs/api-contract.md)
+- [OpenAPI exportado](docs/openapi.json) (se regenera con `npm run docs:export` en `backend/`)
 - [Respuestas teóricas (Ejercicios 3, 4 y 5)](docs/respuestas-teoricas.md)
 
 ## Uso de IA
