@@ -7,23 +7,28 @@ import { JwtService } from '@nestjs/jwt';
 import { getConnectionToken } from '@nestjs/mongoose';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
-import { Connection } from 'mongoose';
+import { Connection, Types } from 'mongoose';
 import { randomBytes } from 'node:crypto';
-import { existsSync } from 'node:fs';
-import { readdir, readFile, rm } from 'node:fs/promises';
-import { join } from 'node:path';
 import sharp from 'sharp';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/app.setup.js';
 import { calculateFinalPrice } from '../src/modules/products/pricing.js';
-import { StorageService } from '../src/modules/storage/storage.service.js';
 
 const user = { email: 'Ana@Correo.com', password: 'Clave1234', name: 'Ana Pérez', role: 'seller' };
 const MISSING_ID = '6739f3b2c4e5b8a9d0f12346';
 
-/** Same value as UPLOADS_DIR in vitest.config.e2e.ts. */
-const UPLOADS_DIR = './uploads-e2e';
+/** Collects a binary response body (the image endpoint answers image/webp). */
+const binaryParser = (
+  res: request.Response,
+  callback: (error: Error | null, body: Buffer) => void,
+) => {
+  // In Node, superagent hands the parser the raw response stream.
+  const stream = res as unknown as NodeJS.ReadableStream;
+  const chunks: Buffer[] = [];
+  stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+  stream.on('end', () => callback(null, Buffer.concat(chunks)));
+};
 
 describe('API (e2e)', () => {
   let app: NestExpressApplication;
@@ -47,10 +52,9 @@ describe('API (e2e)', () => {
   }
 
   beforeAll(async () => {
-    await rm(UPLOADS_DIR, { recursive: true, force: true });
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication<NestExpressApplication>();
-    configureApp(app, { corsOrigin: 'http://localhost:5173', uploadsDir: UPLOADS_DIR });
+    configureApp(app, { corsOrigin: 'http://localhost:5173' });
     await app.init();
 
     const connection = app.get<Connection>(getConnectionToken());
@@ -61,7 +65,6 @@ describe('API (e2e)', () => {
   afterAll(async () => {
     await app.get<Connection>(getConnectionToken()).dropDatabase();
     await app.close();
-    await rm(UPLOADS_DIR, { recursive: true, force: true });
   });
 
   describe('Auth', () => {
@@ -729,13 +732,21 @@ describe('API (e2e)', () => {
 
   describe('Images', () => {
     // Every request to the upload route counts towards its limit of 20 per
-    // minute (per user and per IP). This block makes 16 before the limit test.
+    // minute (per user and per IP). This block makes 15 before the limit test.
     let id: string;
     const imagesPath = () => `/api/v1/seller/products/${id}/images`;
     const upload = (as = token) => api().post(imagesPath()).set(bearer(as));
-    const fileOf = (url: string) => join(UPLOADS_DIR, 'products', url.split('/').pop() as string);
-    const productFiles = async () =>
-      (await readdir(join(UPLOADS_DIR, 'products'))).filter((name) => !name.startsWith('e2e-'));
+    /** GET of a public image URL, without token, as the frontend <img> does. */
+    const fetchImage = (url: string) =>
+      api().get(new URL(url).pathname).set('Origin', 'http://localhost:5173');
+    const imageBytes = async (url: string) =>
+      (await fetchImage(url).buffer(true).parse(binaryParser).expect(200)).body as Buffer;
+    /** The product as stored in MongoDB, base64 included. */
+    const storedProduct = () =>
+      app
+        .get<Connection>(getConnectionToken())
+        .collection<{ images: { _id: Types.ObjectId; data: string; thumbData: string }[] }>('products')
+        .findOne({ _id: new Types.ObjectId(id) });
 
     const solid = (format: 'jpeg' | 'png', width = 64, height = 64) =>
       sharp({ create: { width, height, channels: 3, background: '#00c853' } })
@@ -777,25 +788,75 @@ describe('API (e2e)', () => {
 
       expect(res.body.images).toHaveLength(1);
       const [image] = res.body.images;
+      const imageUrl = `http://localhost:3000/api/v1/products/${id}/images/${image._id}`;
+      // Only the public fields: never the base64 data or the MIME type.
       expect(image).toEqual({
         _id: expect.stringMatching(/^[a-f\d]{24}$/),
-        url: expect.stringMatching(/^http:\/\/localhost:3000\/uploads\/products\/[0-9a-f-]{36}\.webp$/),
-        thumbUrl: expect.stringMatching(/^http:\/\/localhost:3000\/uploads\/products\/[0-9a-f-]{36}_thumb\.webp$/),
+        url: imageUrl,
+        thumbUrl: `${imageUrl}/thumb`,
         width: 1195,
         height: 1195,
       });
-      expect(image).not.toHaveProperty('key');
 
+      // Public endpoint: no token, WebP, cacheable forever and usable cross-origin.
       for (const url of [image.url, image.thumbUrl]) {
-        const file = await api()
-          .get(new URL(url).pathname)
-          .set('Origin', 'http://localhost:5173')
-          .expect(200);
+        const file = await fetchImage(url).buffer(true).parse(binaryParser).expect(200);
         expect(file.headers['content-type']).toBe('image/webp');
+        expect(file.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+        expect(file.headers['x-content-type-options']).toBe('nosniff');
+        // helmet's default (same-origin) would block the image on localhost:5173.
         expect(file.headers['cross-origin-resource-policy']).toBe('cross-origin');
+        expect(Number(file.headers['content-length'])).toBe((file.body as Buffer).length);
       }
-      const thumb = await sharp(await readFile(fileOf(image.thumbUrl))).metadata();
+      const thumb = await sharp(await imageBytes(image.thumbUrl)).metadata();
       expect(thumb).toMatchObject({ format: 'webp', width: 400, height: 400 });
+    });
+
+    it('stores both versions in base64 inside the product document', async () => {
+      const product = await storedProduct();
+      const [image] = product?.images ?? [];
+      expect(typeof image.data).toBe('string');
+      const large = await sharp(Buffer.from(image.data, 'base64')).metadata();
+      const thumb = await sharp(Buffer.from(image.thumbData, 'base64')).metadata();
+      expect(large).toMatchObject({ format: 'webp', width: 1195, height: 1195 });
+      expect(thumb).toMatchObject({ format: 'webp', width: 400, height: 400 });
+    });
+
+    it('lists and details never return the base64 of the images', async () => {
+      const responses = await Promise.all([
+        api().get('/api/v1/seller/products').set(auth()),
+        api().get(`/api/v1/seller/products/${id}`).set(auth()),
+        api().get('/api/v1/products').set(auth()),
+        api().get(`/api/v1/products/${id}`).set(auth()),
+        api().post(`/api/v1/seller/products/${id}/stock-adjustments`).set(auth()).send({ type: 'increase', quantity: 1 }),
+        api().put(`/api/v1/seller/products/${id}/discount`).set(auth()).send({ percent: 10 }),
+        api().patch(`/api/v1/seller/products/${id}`).set(auth()).send({ price: 26000 }),
+      ]);
+      for (const res of responses) {
+        expect(res.status).toBe(200);
+        const products = Array.isArray(res.body.data) ? res.body.data : [res.body];
+        const images = products.flatMap((product: { images: object[] }) => product.images);
+        expect(images.length).toBeGreaterThan(0);
+        for (const image of images) {
+          expect(Object.keys(image).sort()).toEqual(['_id', 'height', 'thumbUrl', 'url', 'width']);
+        }
+        // One image weighs hundreds of KB in base64; the responses stay small.
+        expect(JSON.stringify(res.body).length).toBeLessThan(50_000);
+      }
+    });
+
+    it('the image endpoint only serves active products: a hidden one answers 404', async () => {
+      const [image] = (await api().get(`/api/v1/seller/products/${id}`).set(auth())).body.images;
+      const hide = (isActive: boolean) =>
+        api().patch(`/api/v1/seller/products/${id}`).set(auth()).send({ isActive }).expect(200);
+
+      await hide(false);
+      for (const url of [image.url, image.thumbUrl]) {
+        const res = await fetchImage(url).expect(404);
+        expect(res.body).toMatchObject({ statusCode: 404, message: 'Image not found' });
+      }
+      await hide(true);
+      await fetchImage(image.url).expect(200);
     });
 
     it('stored images are WebP and keep no EXIF metadata', async () => {
@@ -809,7 +870,7 @@ describe('API (e2e)', () => {
 
       const stored = res.body.images[1];
       expect(stored).toMatchObject({ width: 1200, height: 675 });
-      const metadata = await sharp(await readFile(fileOf(stored.url))).metadata();
+      const metadata = await sharp(await imageBytes(stored.url)).metadata();
       expect(metadata.format).toBe('webp');
       expect(metadata.exif).toBeUndefined();
     });
@@ -866,8 +927,7 @@ describe('API (e2e)', () => {
       expect(res.body.message).toBe('Product not found');
     });
 
-    it('two simultaneous uploads for the last slot: one 201 and one 409, without orphan files', async () => {
-      await upload().attach('image', await solid('jpeg'), jpeg).expect(201);
+    it('two simultaneous uploads for the last slot: one 201 and one 409', async () => {
       await upload().attach('image', await solid('png'), { filename: 'b.png', contentType: 'image/png' }).expect(201);
 
       const responses = await Promise.all([
@@ -877,12 +937,11 @@ describe('API (e2e)', () => {
 
       expect(responses.map((res) => res.status).sort((a, b) => a - b)).toEqual([201, 409]);
       const product = await api().get(`/api/v1/seller/products/${id}`).set(auth()).expect(200);
-      expect(product.body.images).toHaveLength(5);
-      // 5 images × (large + thumbnail): the rejected upload left nothing behind.
-      expect(await productFiles()).toHaveLength(10);
+      expect(product.body.images).toHaveLength(4);
+      expect((await storedProduct())?.images).toHaveLength(4);
     });
 
-    it('the sixth image returns 409 "Image limit reached"', async () => {
+    it('the fifth image returns 409 "Image limit reached"', async () => {
       const res = await upload().attach('image', await solid('jpeg'), jpeg).expect(409);
       expect(res.body.message).toBe('Image limit reached');
     });
@@ -898,6 +957,13 @@ describe('API (e2e)', () => {
         .expect(200);
 
       expect(res.body.images.map((image: { _id: string }) => image._id)).toEqual(ids);
+      // The stored subdocuments moved with their data: each URL still serves its image.
+      const stored = await storedProduct();
+      expect(stored?.images.map((image) => image._id.toString())).toEqual(ids);
+      for (const [index, image] of res.body.images.entries()) {
+        const served = await imageBytes(image.url);
+        expect(served.toString('base64')).toBe(stored?.images[index].data);
+      }
     });
 
     it('reordering with ids that are not exactly the current ones returns 400', async () => {
@@ -909,7 +975,7 @@ describe('API (e2e)', () => {
       const missing = await order(ids.slice(1)).expect(400);
       expect(missing.body.message).toEqual(['imageIds must contain exactly the current image ids']);
       await order([...ids.slice(1), MISSING_ID]).expect(400);
-      await order([ids[0], ...ids.slice(0, 4)]).expect(400);
+      await order([ids[0], ...ids.slice(0, 3)]).expect(400);
       await order(['abc']).expect(400);
       await order([]).expect(400);
 
@@ -920,24 +986,33 @@ describe('API (e2e)', () => {
         .expect(404);
     });
 
-    it('deletes one image and its files; an unknown image answers 404 "Image not found"', async () => {
+    it('deletes one image and its data; an unknown image answers 404 "Image not found"', async () => {
       const [first] = (await api().get(`/api/v1/seller/products/${id}`).set(auth())).body.images;
 
       const res = await api().delete(`${imagesPath()}/${first._id}`).set(auth()).expect(200);
 
-      expect(res.body.images).toHaveLength(4);
-      expect(existsSync(fileOf(first.url))).toBe(false);
-      expect(existsSync(fileOf(first.thumbUrl))).toBe(false);
+      expect(res.body.images).toHaveLength(3);
+      expect((await storedProduct())?.images).toHaveLength(3);
+      await fetchImage(first.url).expect(404);
+      await fetchImage(first.thumbUrl).expect(404);
 
       const again = await api().delete(`${imagesPath()}/${first._id}`).set(auth()).expect(404);
       expect(again.body.message).toBe('Image not found');
       await api().delete(`${imagesPath()}/abc`).set(auth()).expect(400);
     });
 
-    it('deleting the product removes all its files from uploads/', async () => {
-      expect(await productFiles()).toHaveLength(8);
+    it('deleting the product removes its images: their URLs answer 404', async () => {
+      const { images } = (await api().get(`/api/v1/seller/products/${id}`).set(auth())).body;
+      expect(images).toHaveLength(3);
+      await fetchImage(images[0].url).expect(200);
+
       await api().delete(`/api/v1/seller/products/${id}`).set(auth()).expect(204);
-      expect(await productFiles()).toHaveLength(0);
+
+      expect(await storedProduct()).toBeNull();
+      for (const image of images) {
+        await fetchImage(image.url).expect(404);
+        await fetchImage(image.thumbUrl).expect(404);
+      }
     });
 
     it('more than 20 uploads per minute return 429 "Too many requests"', async () => {
@@ -951,28 +1026,20 @@ describe('API (e2e)', () => {
     });
   });
 
-  describe('Uploads (static files)', () => {
-    it('serves a stored file without token, with cache, nosniff and CORP cross-origin', async () => {
-      const storage = app.get(StorageService);
-      await storage.save('e2e-sample.webp', Buffer.from('RIFF....WEBP'));
-      expect(storage.getPublicUrl('e2e-sample.webp')).toBe(
-        'http://localhost:3000/uploads/products/e2e-sample.webp',
-      );
+  describe('Public image endpoint', () => {
+    it('invalid ids answer 400 and an unknown product or image answers 404', async () => {
+      const base = '/api/v1/products';
+      const invalid = await api().get(`${base}/abc/images/${MISSING_ID}`).expect(400);
+      expect(invalid.body.message).toBe('Invalid id');
+      await api().get(`${base}/${MISSING_ID}/images/abc/thumb`).expect(400);
 
-      const res = await api()
-        .get('/uploads/products/e2e-sample.webp')
-        .set('Origin', 'http://localhost:5173')
-        .expect(200);
-      expect(res.headers['content-type']).toBe('image/webp');
-      expect(res.headers['cache-control']).toBe('public, max-age=31536000, immutable');
-      expect(res.headers['x-content-type-options']).toBe('nosniff');
-      // helmet's default (same-origin) would block the image on localhost:5173.
-      expect(res.headers['cross-origin-resource-policy']).toBe('cross-origin');
+      const unknown = await api().get(`${base}/${MISSING_ID}/images/${MISSING_ID}`).expect(404);
+      expect(unknown.body).toMatchObject({ statusCode: 404, message: 'Image not found' });
+      await api().get(`${base}/${MISSING_ID}/images/${MISSING_ID}/thumb`).expect(404);
     });
 
-    it('a missing file answers 404 and the API keeps the same-origin policy', async () => {
-      await api().get('/uploads/products/no-existe.webp').expect(404);
-      await api().get('/uploads/../.env').expect(404);
+    it('the old static /uploads route no longer exists and the API keeps same-origin', async () => {
+      await api().get('/uploads/products/cualquiera.webp').expect(404);
 
       const apiResponse = await api().get('/api/v1/products').set(auth());
       expect(apiResponse.headers['cross-origin-resource-policy']).toBe('same-origin');

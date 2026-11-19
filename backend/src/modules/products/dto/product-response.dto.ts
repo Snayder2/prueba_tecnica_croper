@@ -5,16 +5,17 @@ export class ProductImageResponseDto {
   _id: string;
 
   @ApiProperty({
-    description: 'URL absoluta de la imagen grande (WebP, máximo 1200 px de lado)',
+    description:
+      'URL absoluta de la imagen grande (WebP, máximo 1200 px de lado). Pública, sin token',
     example:
-      'http://localhost:3000/uploads/products/9b1f6e2a-4c7d-4e0b-a1f3-2d8c5e7b9a10.webp',
+      'http://localhost:3000/api/v1/products/6739f3b2c4e5b8a9d0f12346/images/673a01c9c4e5b8a9d0f12401',
   })
   url: string;
 
   @ApiProperty({
-    description: 'URL absoluta de la miniatura (WebP, 400 × 400 px)',
+    description: 'URL absoluta de la miniatura (WebP, 400 × 400 px). Pública, sin token',
     example:
-      'http://localhost:3000/uploads/products/9b1f6e2a-4c7d-4e0b-a1f3-2d8c5e7b9a10_thumb.webp',
+      'http://localhost:3000/api/v1/products/6739f3b2c4e5b8a9d0f12346/images/673a01c9c4e5b8a9d0f12401/thumb',
   })
   thumbUrl: string;
 
@@ -76,7 +77,7 @@ export class ProductResponseDto {
 
   @ApiProperty({
     type: [ProductImageResponseDto],
-    description: 'Hasta 5 imágenes. `images[0]` es la principal; puede estar vacío',
+    description: 'Hasta 4 imágenes. `images[0]` es la principal; puede estar vacío',
   })
   images: ProductImageResponseDto[];
 

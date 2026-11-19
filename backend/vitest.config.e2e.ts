@@ -16,8 +16,6 @@ export default defineConfig({
       JWT_EXPIRES_IN: '1h',
       CORS_ORIGIN: 'http://localhost:5173',
       PUBLIC_BASE_URL: 'http://localhost:3000',
-      // Separate folder: the e2e suite deletes it before and after running.
-      UPLOADS_DIR: './uploads-e2e',
     },
   },
 });

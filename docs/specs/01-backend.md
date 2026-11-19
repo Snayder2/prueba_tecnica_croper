@@ -17,8 +17,8 @@ Esta spec describe la versión 1.0.0, que es la respuesta al ejercicio 1. El có
 | §6 Errores | Hasta 409 | Agrega 403, 413 y 415, y nuevos casos de 400, 404 y 409 (contrato §6.2) |
 | §7 Seguridad | Límites "por ejemplo" | 100/min por IP, 5/min en login y 20/min por usuario en la subida de imágenes; `sellerId` siempre sale del token |
 | §8 Swagger | Versión `1.0.0`, tags `Auth` y `Products` | Versión `1.1.0`, tags `Auth`, `Catalog` y `Seller products`; subida `multipart/form-data` |
-| §9 Configuración | 5 variables | Además `PUBLIC_BASE_URL` y `UPLOADS_DIR` (obligatorias) |
-| §10 Estructura | Un `ProductsController` | `CatalogController`, `SellerProductsController`, módulos `images` y `storage`, `app.setup.ts` y `scripts/seed.ts` |
+| §9 Configuración | 5 variables | Además `PUBLIC_BASE_URL` (obligatoria) |
+| §10 Estructura | Un `ProductsController` | `CatalogController`, `SellerProductsController`, `ProductImagesController` (imágenes públicas desde MongoDB), módulo `images`, `app.setup.ts` y `scripts/seed.ts` |
 
 El detalle de la implementación y de cada decisión está en [`IMPLEMENTATION_LOG.md`](IMPLEMENTATION_LOG.md).
 

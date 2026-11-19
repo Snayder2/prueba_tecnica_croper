@@ -30,8 +30,14 @@ export const routes: RouteObject[] = [
       {
         element: <AppLayout />,
         children: [
-          { path: '/catalog', element: page(<CatalogPage />, 'Cargando el catálogo…') },
-          { path: '/catalog/:id', element: page(<ProductDetailPage />, 'Cargando el producto…') },
+          {
+            // The catalog is for buyers; a seller only manages their own products.
+            element: <ProtectedRoute roles={['buyer']} />,
+            children: [
+              { path: '/catalog', element: page(<CatalogPage />, 'Cargando el catálogo…') },
+              { path: '/catalog/:id', element: page(<ProductDetailPage />, 'Cargando el producto…') },
+            ],
+          },
           {
             element: <ProtectedRoute roles={['seller']} />,
             children: [

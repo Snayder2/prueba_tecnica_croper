@@ -254,7 +254,7 @@ export class SellerProductsController {
       'Un archivo por petición, en el campo `image` (`multipart/form-data`, sin campos de texto). ' +
       'JPEG, PNG o WebP según su contenido real, máximo 1 MB (1 048 576 bytes) y 40 megapíxeles. ' +
       'Se re-codifica a WebP (máximo 1200 px y miniatura de 400 × 400) sin metadatos y se agrega ' +
-      'al final de `images`. Máximo 5 imágenes por producto. Límite: 20 subidas por minuto por usuario.',
+      'al final de `images` (se guarda en base64 dentro del producto). Máximo 4 imágenes por producto. Límite: 20 subidas por minuto por usuario.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -280,7 +280,7 @@ export class SellerProductsController {
     INVALID_ID,
   )
   @ApiProductNotFound(`${SELLER_PATH_ID}/images`, NOT_OWN)
-  @ApiErrorResponse(409, 'El producto ya tiene 5 imágenes', `${SELLER_PATH_ID}/images`, {
+  @ApiErrorResponse(409, 'El producto ya tiene 4 imágenes', `${SELLER_PATH_ID}/images`, {
     summary: 'Límite de imágenes',
     message: 'Image limit reached',
   })
@@ -308,7 +308,7 @@ export class SellerProductsController {
   @Delete(':id/images/:imageId')
   @ApiOperation({
     summary: 'Eliminar una imagen',
-    description: 'Se quita del producto y después se borran sus archivos.',
+    description: 'Se quita del producto junto con sus datos.',
   })
   @ApiProductIdParam()
   @ApiParam({

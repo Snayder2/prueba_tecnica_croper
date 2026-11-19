@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
@@ -77,10 +77,27 @@ describe('routes by role (spec 03 §13.1)', () => {
     ]);
   });
 
-  it('the top bar shows "Mis productos" only to sellers', async () => {
+  it('a seller who types /catalog or a product detail ends up in /seller/products with a notice', async () => {
+    for (const path of ['/catalog', '/catalog/6739f3b2c4e5b8a9d0f12346']) {
+      const { router, store } = renderAt(path, 'seller');
+
+      await vi.waitFor(() => expect(router.state.location.pathname).toBe('/seller/products'));
+      expect(store.getState().ui.notifications.map((n) => n.message)).toEqual([
+        'No tienes acceso a esa sección.',
+      ]);
+      cleanup();
+    }
+  });
+
+  it('the top bar shows "Catálogo" only to buyers and "Mis productos" only to sellers', async () => {
     renderAt('/catalog', 'buyer');
     expect(await screen.findByRole('link', { name: 'Catálogo' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Mis productos' })).not.toBeInTheDocument();
+    cleanup();
+
+    renderAt('/seller/products', 'seller');
+    expect(await screen.findByRole('link', { name: 'Mis productos' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Catálogo' })).not.toBeInTheDocument();
   });
 
   it('without a session a protected route goes to /login', async () => {

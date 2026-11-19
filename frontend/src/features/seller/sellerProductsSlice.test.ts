@@ -369,8 +369,8 @@ describe('row actions (spec 03 §13.3): the response replaces the row without re
 describe('image thunks (spec 03 §13.3)', () => {
   const imageA = {
     _id: '673a01c9c4e5b8a9d0f12401',
-    url: 'http://localhost:3000/uploads/products/a.webp',
-    thumbUrl: 'http://localhost:3000/uploads/products/a_thumb.webp',
+    url: 'http://localhost:3000/api/v1/products/p1/images/a',
+    thumbUrl: 'http://localhost:3000/api/v1/products/p1/images/a/thumb',
     width: 1200,
     height: 1200,
   };

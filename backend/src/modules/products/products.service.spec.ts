@@ -1,14 +1,14 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { getModelToken } from '@nestjs/mongoose';
 import { Test } from '@nestjs/testing';
 import { Types } from 'mongoose';
 import { CatalogQueryDto } from './dto/catalog-query.dto.js';
 import { SellerProductsQueryDto } from './dto/seller-products-query.dto.js';
 import { ImageProcessingService } from '../images/image-processing.service.js';
-import { StorageService } from '../storage/storage.service.js';
 import { finalPriceExpression } from './pricing.js';
 import { ProductsService } from './products.service.js';
-import { Product } from './schemas/product.schema.js';
+import { Product, WITHOUT_IMAGE_DATA } from './schemas/product.schema.js';
 
 /** Chainable stand-in for a Mongoose query that resolves to `result` on exec(). */
 function queryMock<T>(result: T) {
@@ -30,16 +30,20 @@ function queryMock<T>(result: T) {
 const duplicateKeyError = Object.assign(new Error('E11000 duplicate key'), { code: 11000 });
 
 const seller = { _id: new Types.ObjectId(), name: 'Ana Pérez', email: 'ana@correo.com' };
+const storedId = new Types.ObjectId();
+const imageId = new Types.ObjectId();
+const imageUrl = `http://localhost:3000/api/v1/products/${storedId.toString()}/images/${imageId.toString()}`;
+/** As every product query returns it: without the base64 (WITHOUT_IMAGE_DATA). */
 const image = {
-  _id: new Types.ObjectId(),
-  key: 'abc.webp',
-  url: 'http://localhost:3000/uploads/products/abc.webp',
-  thumbUrl: 'http://localhost:3000/uploads/products/abc_thumb.webp',
+  _id: imageId,
+  mimeType: 'image/webp',
+  url: imageUrl,
+  thumbUrl: `${imageUrl}/thumb`,
   width: 1200,
   height: 900,
 };
 const stored = {
-  _id: new Types.ObjectId(),
+  _id: storedId,
   sellerId: seller._id,
   name: 'Café de origen Huila 500 g',
   price: 32000,
@@ -84,21 +88,21 @@ describe('ProductsService', () => {
     exists: vi.fn(),
     findOne: vi.fn(),
     findOneAndUpdate: vi.fn(),
-    findOneAndDelete: vi.fn(),
+    deleteOne: vi.fn(),
+    aggregate: vi.fn(),
   };
 
-  const storage = { save: vi.fn(), delete: vi.fn(), getPublicUrl: vi.fn() };
   const imageProcessing = { process: vi.fn() };
+  const config = { get: (key: string) => ({ PUBLIC_BASE_URL: 'http://cdn.test/' })[key] };
 
   beforeEach(async () => {
     vi.resetAllMocks();
-    storage.getPublicUrl.mockImplementation((key: string) => `http://cdn.test/${key}`);
     const moduleRef = await Test.createTestingModule({
       providers: [
         ProductsService,
         { provide: getModelToken(Product.name), useValue: model },
-        { provide: StorageService, useValue: storage },
         { provide: ImageProcessingService, useValue: imageProcessing },
+        { provide: ConfigService, useValue: config },
       ],
     }).compile();
     service = moduleRef.get(ProductsService);
@@ -113,6 +117,7 @@ describe('ProductsService', () => {
       const result = await service.findCatalog(catalogQuery());
 
       expect(model.find).toHaveBeenCalledWith({ isActive: true });
+      expect(query.select).toHaveBeenCalledWith(WITHOUT_IMAGE_DATA);
       expect(query.populate).toHaveBeenCalledWith({ path: 'sellerId', select: 'name' });
       expect(query.sort).toHaveBeenCalledWith({ createdAt: -1, _id: -1 });
       expect(query.skip).toHaveBeenCalledWith(0);
@@ -123,7 +128,7 @@ describe('ProductsService', () => {
       });
     });
 
-    it('never exposes the seller email, sellerId or the image storage key', async () => {
+    it('never exposes the seller email, sellerId or the image data and MIME type', async () => {
       model.find.mockReturnValue(
         queryMock([{ ...stored, sellerId: { _id: seller._id, name: seller.name } }]),
       );
@@ -133,7 +138,13 @@ describe('ProductsService', () => {
 
       expect(product).not.toHaveProperty('sellerId');
       expect(product.seller).not.toHaveProperty('email');
-      expect(product.images[0]).not.toHaveProperty('key');
+      expect(Object.keys(product.images[0]).sort()).toEqual([
+        '_id',
+        'height',
+        'thumbUrl',
+        'url',
+        'width',
+      ]);
     });
 
     it('applies category, price range on finalPrice, onSale and inStock', async () => {
@@ -191,13 +202,13 @@ describe('ProductsService', () => {
   });
 
   describe('findCatalogProduct', () => {
-    it('returns an active product with its seller', async () => {
-      model.findOne.mockReturnValue(
-        queryMock({ ...stored, sellerId: { _id: seller._id, name: seller.name } }),
-      );
+    it('returns an active product with its seller, without the image data', async () => {
+      const query = queryMock({ ...stored, sellerId: { _id: seller._id, name: seller.name } });
+      model.findOne.mockReturnValue(query);
 
       await expect(service.findCatalogProduct(stored._id.toString())).resolves.toEqual(expectedView);
       expect(model.findOne).toHaveBeenCalledWith({ _id: stored._id.toString(), isActive: true });
+      expect(query.select).toHaveBeenCalledWith(WITHOUT_IMAGE_DATA);
     });
 
     it('throws 404 "Product not found" when it does not exist or is hidden', async () => {
@@ -220,6 +231,7 @@ describe('ProductsService', () => {
       );
 
       expect(model.find).toHaveBeenCalledWith({ sellerId: seller._id });
+      expect(query.select).toHaveBeenCalledWith(WITHOUT_IMAGE_DATA);
       expect(query.populate).not.toHaveBeenCalled();
       expect(query.sort).toHaveBeenCalledWith({ finalPrice: 1, _id: 1 });
       expect(query.skip).toHaveBeenCalledWith(5);
@@ -240,12 +252,14 @@ describe('ProductsService', () => {
 
   describe('findSellerProduct', () => {
     it('filters by _id and sellerId in the same query', async () => {
-      model.findOne.mockReturnValue(queryMock(stored));
+      const query = queryMock(stored);
+      model.findOne.mockReturnValue(query);
 
       await expect(service.findSellerProduct(stored._id.toString(), seller)).resolves.toEqual(
         expectedView,
       );
       expect(model.findOne).toHaveBeenCalledWith({ _id: stored._id.toString(), sellerId: seller._id });
+      expect(query.select).toHaveBeenCalledWith(WITHOUT_IMAGE_DATA);
     });
 
     it("answers 404 for another seller's product", async () => {
@@ -359,13 +373,13 @@ describe('ProductsService', () => {
     const id = stored._id.toString();
 
     it('sets the discount and recalculates finalPrice in the same pipeline', async () => {
-      model.findOneAndUpdate.mockReturnValue(
-        queryMock({ ...stored, price: 145000, discountPercent: 15, finalPrice: 123250 }),
-      );
+      const query = queryMock({ ...stored, price: 145000, discountPercent: 15, finalPrice: 123250 });
+      model.findOneAndUpdate.mockReturnValue(query);
 
       const result = await service.setDiscount(id, seller, 15);
 
       expect(result).toMatchObject({ discountPercent: 15, finalPrice: 123250 });
+      expect(query.select).toHaveBeenCalledWith(WITHOUT_IMAGE_DATA);
       expect(model.findOneAndUpdate).toHaveBeenCalledWith(
         { _id: id, sellerId: seller._id },
         [{ $set: { discountPercent: 15 } }, { $set: { finalPrice: finalPriceExpression } }],
@@ -402,32 +416,40 @@ describe('ProductsService', () => {
       height: 800,
     };
 
-    it('processes, stores both files and pushes only if there are fewer than 5 images', async () => {
-      model.findOne.mockReturnValue(queryMock({ ...stored, images: [] }));
+    it('processes, stores both versions in base64 and pushes only if there are fewer than 4 images', async () => {
+      const current = queryMock({ images: [] });
+      model.findOne.mockReturnValue(current);
       imageProcessing.process.mockResolvedValue(processed);
-      model.findOneAndUpdate.mockImplementation((_filter, update: { $push: { images: object } }) =>
-        queryMock({ ...stored, images: [update.$push.images] }),
-      );
+      const pushed = queryMock(null);
+      model.findOneAndUpdate.mockImplementation((_filter, update: { $push: { images: object } }) => {
+        pushed.exec.mockResolvedValue({ ...stored, images: [update.$push.images] });
+        return pushed;
+      });
 
       const result = await service.addImage(id, seller, file);
 
       expect(imageProcessing.process).toHaveBeenCalledWith(file.buffer);
-      const [[largeKey, largeBuffer], [thumbKey, thumbBuffer]] = storage.save.mock.calls as [
-        string,
-        Buffer,
-      ][];
-      expect(largeKey).toMatch(/^[0-9a-f-]{36}\.webp$/);
-      expect(thumbKey).toBe(largeKey.replace('.webp', '_thumb.webp'));
-      expect([largeBuffer, thumbBuffer]).toEqual([processed.large, processed.thumbnail]);
-
+      expect(current.select).toHaveBeenCalledWith({ 'images._id': 1 });
       const [filter, update, options] = model.findOneAndUpdate.mock.calls[0];
-      expect(filter).toEqual({ _id: id, sellerId: seller._id, 'images.4': { $exists: false } });
-      expect(update.$push.images).toMatchObject({ key: largeKey, width: 1200, height: 800 });
-      expect(options).toEqual({ returnDocument: 'after' });
-      expect(result.images[0]).toEqual({
+      expect(filter).toEqual({ _id: id, sellerId: seller._id, 'images.3': { $exists: false } });
+      const newImage = update.$push.images;
+      const base = `http://cdn.test/api/v1/products/${id}/images/${newImage._id.toString()}`;
+      expect(newImage).toEqual({
         _id: expect.any(Types.ObjectId),
-        url: `http://cdn.test/${largeKey}`,
-        thumbUrl: `http://cdn.test/${thumbKey}`,
+        mimeType: 'image/webp',
+        data: processed.large.toString('base64'),
+        thumbData: processed.thumbnail.toString('base64'),
+        url: base,
+        thumbUrl: `${base}/thumb`,
+        width: 1200,
+        height: 800,
+      });
+      expect(options).toEqual({ returnDocument: 'after' });
+      expect(pushed.select).toHaveBeenCalledWith(WITHOUT_IMAGE_DATA);
+      expect(result.images[0]).toEqual({
+        _id: newImage._id,
+        url: base,
+        thumbUrl: `${base}/thumb`,
         width: 1200,
         height: 800,
       });
@@ -442,8 +464,8 @@ describe('ProductsService', () => {
       expect(imageProcessing.process).not.toHaveBeenCalled();
     });
 
-    it('answers 409 before processing when there are already 5 images', async () => {
-      model.findOne.mockReturnValue(queryMock({ ...stored, images: Array(5).fill(image) }));
+    it('answers 409 before processing when there are already 4 images', async () => {
+      model.findOne.mockReturnValue(queryMock({ images: Array(4).fill(image) }));
 
       await expect(service.addImage(id, seller, file)).rejects.toThrow(
         new ConflictException('Image limit reached'),
@@ -451,8 +473,8 @@ describe('ProductsService', () => {
       expect(imageProcessing.process).not.toHaveBeenCalled();
     });
 
-    it('answers 409 and deletes the new files when a concurrent upload took the last slot', async () => {
-      model.findOne.mockReturnValue(queryMock({ ...stored, images: Array(4).fill(image) }));
+    it('answers 409 when a concurrent upload took the last slot', async () => {
+      model.findOne.mockReturnValue(queryMock({ images: Array(3).fill(image) }));
       imageProcessing.process.mockResolvedValue(processed);
       model.findOneAndUpdate.mockReturnValue(queryMock(null));
       model.exists.mockReturnValue(queryMock({ _id: stored._id }));
@@ -460,18 +482,27 @@ describe('ProductsService', () => {
       await expect(service.addImage(id, seller, file)).rejects.toThrow(
         new ConflictException('Image limit reached'),
       );
-      const saved = storage.save.mock.calls.map(([key]) => key as string).sort();
-      const deleted = storage.delete.mock.calls.map(([key]) => key as string).sort();
-      expect(deleted).toEqual(saved);
+    });
+
+    it('answers 404 when the product was deleted during the processing', async () => {
+      model.findOne.mockReturnValue(queryMock({ images: [] }));
+      imageProcessing.process.mockResolvedValue(processed);
+      model.findOneAndUpdate.mockReturnValue(queryMock(null));
+      model.exists.mockReturnValue(queryMock(null));
+
+      await expect(service.addImage(id, seller, file)).rejects.toThrow(
+        new NotFoundException('Product not found'),
+      );
     });
   });
 
   describe('deleteImage', () => {
     const id = stored._id.toString();
 
-    it('pulls the image filtering by _id, sellerId and image id, then deletes its files', async () => {
-      model.findOne.mockReturnValue(queryMock(stored));
-      model.findOneAndUpdate.mockReturnValue(queryMock({ ...stored, images: [] }));
+    it('pulls the image (and its data) filtering by _id, sellerId and image id', async () => {
+      model.findOne.mockReturnValue(queryMock({ images: [{ _id: image._id }] }));
+      const pulled = queryMock({ ...stored, images: [] });
+      model.findOneAndUpdate.mockReturnValue(pulled);
 
       const result = await service.deleteImage(id, seller, image._id.toString());
 
@@ -481,8 +512,7 @@ describe('ProductsService', () => {
         { $pull: { images: { _id: image._id } } },
         { returnDocument: 'after' },
       );
-      expect(storage.delete).toHaveBeenCalledWith('abc.webp');
-      expect(storage.delete).toHaveBeenCalledWith('abc_thumb.webp');
+      expect(pulled.select).toHaveBeenCalledWith(WITHOUT_IMAGE_DATA);
     });
 
     it('answers 404 "Image not found" for an unknown image', async () => {
@@ -491,7 +521,7 @@ describe('ProductsService', () => {
       await expect(
         service.deleteImage(id, seller, new Types.ObjectId().toString()),
       ).rejects.toThrow(new NotFoundException('Image not found'));
-      expect(storage.delete).not.toHaveBeenCalled();
+      expect(model.findOneAndUpdate).not.toHaveBeenCalled();
     });
 
     it('answers 404 "Product not found" for another seller’s product', async () => {
@@ -504,12 +534,14 @@ describe('ProductsService', () => {
 
   describe('reorderImages', () => {
     const id = stored._id.toString();
-    const second = { ...image, _id: new Types.ObjectId(), key: 'def.webp' };
+    const second = { ...image, _id: new Types.ObjectId() };
     const withTwo = { ...stored, images: [image, second] };
 
-    it('saves the new order only if the images did not change meanwhile', async () => {
-      model.findOne.mockReturnValue(queryMock(withTwo));
-      model.findOneAndUpdate.mockReturnValue(queryMock({ ...stored, images: [second, image] }));
+    it('saves the new order inside MongoDB, only if the images did not change meanwhile', async () => {
+      const current = queryMock(withTwo);
+      model.findOne.mockReturnValue(current);
+      const reordered = queryMock({ ...stored, images: [second, image] });
+      model.findOneAndUpdate.mockReturnValue(reordered);
 
       const result = await service.reorderImages(id, seller, [
         second._id.toString(),
@@ -517,6 +549,9 @@ describe('ProductsService', () => {
       ]);
 
       expect(result.images.map((item) => item._id)).toEqual([second._id, image._id]);
+      expect(current.select).toHaveBeenCalledWith(WITHOUT_IMAGE_DATA);
+      // The stored subdocuments (with their data) are rebuilt by an update
+      // pipeline, so the base64 never travels to Node.
       expect(model.findOneAndUpdate).toHaveBeenCalledWith(
         {
           _id: id,
@@ -524,9 +559,27 @@ describe('ProductsService', () => {
           images: { $size: 2 },
           'images._id': { $all: [image._id, second._id] },
         },
-        { $set: { images: [second, image] } },
-        { returnDocument: 'after' },
+        [
+          {
+            $set: {
+              images: {
+                $map: {
+                  input: { $literal: [second._id, image._id] },
+                  as: 'imageId',
+                  in: {
+                    $arrayElemAt: [
+                      { $filter: { input: '$images', cond: { $eq: ['$$this._id', '$$imageId'] } } },
+                      0,
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        ],
+        { returnDocument: 'after', updatePipeline: true },
       );
+      expect(reordered.select).toHaveBeenCalledWith(WITHOUT_IMAGE_DATA);
     });
 
     it.each([
@@ -607,31 +660,52 @@ describe('ProductsService', () => {
   });
 
   describe('remove', () => {
-    it('deletes filtering by _id and sellerId, then removes the image files', async () => {
-      model.findOneAndDelete.mockReturnValue(queryMock(stored));
+    it('deletes filtering by _id and sellerId (the images go with the document)', async () => {
+      model.deleteOne.mockReturnValue(queryMock({ deletedCount: 1 }));
 
       await expect(service.remove(stored._id.toString(), seller)).resolves.toBeUndefined();
-      expect(model.findOneAndDelete).toHaveBeenCalledWith({
+      expect(model.deleteOne).toHaveBeenCalledWith({
         _id: stored._id.toString(),
         sellerId: seller._id,
       });
-      expect(storage.delete.mock.calls.map(([key]) => key as string).sort()).toEqual([
-        'abc.webp',
-        'abc_thumb.webp',
-      ]);
-    });
-
-    it('only logs a file that cannot be deleted (the product is already gone)', async () => {
-      model.findOneAndDelete.mockReturnValue(queryMock(stored));
-      storage.delete.mockRejectedValue(new Error('EPERM'));
-
-      await expect(service.remove(stored._id.toString(), seller)).resolves.toBeUndefined();
     });
 
     it("throws 404 when the product does not exist or is another seller's", async () => {
-      model.findOneAndDelete.mockReturnValue(queryMock(null));
+      model.deleteOne.mockReturnValue(queryMock({ deletedCount: 0 }));
       await expect(service.remove(stored._id.toString(), seller)).rejects.toThrow(
         new NotFoundException('Product not found'),
+      );
+    });
+  });
+
+  describe('findImageContent', () => {
+    const id = stored._id.toString();
+    const webp = Buffer.from('RIFF....WEBP');
+
+    it.each([
+      ['large', '$images.data'],
+      ['thumb', '$images.thumbData'],
+    ] as const)('reads only the %s version of an image of an active product', async (variant, field) => {
+      model.aggregate.mockReturnValue(
+        queryMock([{ mimeType: 'image/webp', data: webp.toString('base64') }]),
+      );
+
+      const result = await service.findImageContent(id, image._id.toString(), variant);
+
+      expect(result).toEqual({ mimeType: 'image/webp', buffer: webp });
+      expect(model.aggregate).toHaveBeenCalledWith([
+        { $match: { _id: stored._id, isActive: true } },
+        { $unwind: '$images' },
+        { $match: { 'images._id': image._id } },
+        { $project: { _id: 0, mimeType: '$images.mimeType', data: field } },
+      ]);
+    });
+
+    it('answers 404 "Image not found" for a hidden or unknown product, or an unknown image', async () => {
+      model.aggregate.mockReturnValue(queryMock([]));
+
+      await expect(service.findImageContent(id, image._id.toString(), 'large')).rejects.toThrow(
+        new NotFoundException('Image not found'),
       );
     });
   });

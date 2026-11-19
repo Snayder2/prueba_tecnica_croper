@@ -23,7 +23,7 @@ describe('toAppError (contract 1.1.0 §6.2)', () => {
       'No hay suficiente stock para esa salida.',
     );
     expect(toAppError(httpError(409, `/seller/products/${ID}/images`)).message).toBe(
-      'Este producto ya tiene 5 imágenes.',
+      'Este producto ya tiene 4 imágenes.',
     );
     expect(toAppError(httpError(409, `/seller/products/${ID}`)).fieldErrors).toEqual({
       sku: 'Ya existe un producto con ese SKU.',

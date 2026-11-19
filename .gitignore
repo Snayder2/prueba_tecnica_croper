@@ -159,7 +159,8 @@ vite.config.ts.timestamp-*
 # Build output
 build/
 
-# Uploaded product images (UPLOADS_DIR) and the e2e copy
+# Image folders of the old disk storage (images now live in MongoDB);
+# kept so leftover local copies are never committed
 uploads/
 uploads-e2e/
 

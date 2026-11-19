@@ -5,6 +5,8 @@ import sharp from 'sharp';
 export const MAX_INPUT_PIXELS = 40_000_000;
 export const LARGE_IMAGE_MAX_SIDE = 1200;
 export const THUMBNAIL_SIDE = 400;
+/** Both versions are always re-encoded to WebP. */
+export const PROCESSED_IMAGE_MIME = 'image/webp';
 
 export interface ProcessedImage {
   /** WebP, at most 1200 × 1200 px, never enlarged. */

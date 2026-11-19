@@ -15,7 +15,7 @@
 | Roles | `seller` (vendedor) y `buyer` (comprador). Columna "Rol" de la sección 2. |
 | Fechas | ISO 8601 en UTC (`2026-11-17T21:30:00.000Z`) |
 | Identificadores | ObjectId de MongoDB como string de 24 caracteres hexadecimales, en el campo `_id` |
-| Imágenes | URLs absolutas en `http://localhost:3000/uploads/products/...`. Públicas: no necesitan token. |
+| Imágenes | URLs absolutas en `http://localhost:3000/api/v1/products/:id/images/:imageId` (y `/thumb`). Públicas: no necesitan token. Se guardan en MongoDB. |
 | Origen permitido (CORS) | `http://localhost:5173` (`CORS_ORIGIN`) |
 | Documentación interactiva | `http://localhost:3000/api/docs` |
 
@@ -36,8 +36,12 @@
 | GET | `/products` | Sí | Cualquiera | 200 `PaginatedResponse<Product>` | 400, 401 |
 | GET | `/products/categories` | Sí | Cualquiera | 200 `string[]` | 401 |
 | GET | `/products/:id` | Sí | Cualquiera | 200 `Product` | 400, 401, 404 |
+| GET | `/products/:id/images/:imageId` | No | — | 200 binario `image/webp` | 400, 404 |
+| GET | `/products/:id/images/:imageId/thumb` | No | — | 200 binario `image/webp` | 400, 404 |
 
-Solo incluye productos con `isActive: true`. Un producto oculto responde 404 en el detalle.
+Solo incluye productos con `isActive: true`. Un producto oculto responde 404 en el detalle y en sus imágenes.
+
+Los dos endpoints de imagen son las URLs que devuelven `url` y `thumbUrl`. No piden token (una etiqueta `<img>` no envía `Authorization`) y responden con `Cache-Control: public, max-age=31536000, immutable`, `X-Content-Type-Options: nosniff` y `Cross-Origin-Resource-Policy: cross-origin`. Una imagen que no existe, o de un producto oculto o inexistente, responde 404 `"Image not found"`.
 
 ### 2.3 Productos del vendedor
 
@@ -265,11 +269,11 @@ El redondeo es a 2 decimales con las mitades hacia arriba, y se calcula en centa
 | Tamaño máximo | 1 MB = **1 048 576 bytes**. El servidor deja de leer al pasar el límite | 413 |
 | Formatos | JPEG, PNG o WebP. Se rechaza tanto por el `Content-Type` declarado como por el contenido real del archivo. Un archivo que parece una imagen pero no se puede decodificar también responde 415 | 415 |
 | Resolución máxima | 40 megapíxeles → `"Image dimensions too large"` | 400 |
-| Cantidad por producto | Máximo 5 | 409 |
+| Cantidad por producto | Máximo 4 | 409 |
 
-El servidor re-codifica todas las imágenes a WebP y elimina sus metadatos. Lo que se guarda y se sirve nunca es el archivo original.
+El servidor re-codifica todas las imágenes a WebP y elimina sus metadatos. Lo que se guarda (en base64, dentro del producto en MongoDB) y se sirve nunca es el archivo original. Ninguna respuesta JSON incluye ese base64.
 
-Orden de las comprobaciones al subir (el primer error que se cumpla es el que se responde): 429 por IP → 401 → 403 → 429 por usuario → errores de Multer (413, 400, 415 por `Content-Type`) → 400 `"Invalid id"` → 400 `"Image is required"` → 415 por contenido → 404 → 409 (ya tiene 5) → 400 por resolución.
+Orden de las comprobaciones al subir (el primer error que se cumpla es el que se responde): 429 por IP → 401 → 403 → 429 por usuario → errores de Multer (413, 400, 415 por `Content-Type`) → 400 `"Invalid id"` → 400 `"Image is required"` → 415 por contenido → 404 → 409 (ya tiene 4) → 400 por resolución.
 
 Reordenar (`imageIds`):
 - Cada elemento debe ser un ObjectId válido y no puede repetirse (400 de validación, como el resto de cuerpos).
@@ -376,8 +380,8 @@ Authorization: Bearer eyJhbGciOi...
       "images": [
         {
           "_id": "673a01c9c4e5b8a9d0f12401",
-          "url": "http://localhost:3000/uploads/products/9b1f6e2a-4c7d-4e0b-a1f3-2d8c5e7b9a10.webp",
-          "thumbUrl": "http://localhost:3000/uploads/products/9b1f6e2a-4c7d-4e0b-a1f3-2d8c5e7b9a10_thumb.webp",
+          "url": "http://localhost:3000/api/v1/products/6739f3b2c4e5b8a9d0f12346/images/673a01c9c4e5b8a9d0f12401",
+          "thumbUrl": "http://localhost:3000/api/v1/products/6739f3b2c4e5b8a9d0f12346/images/673a01c9c4e5b8a9d0f12401/thumb",
           "width": 1200,
           "height": 1200
         }
@@ -536,11 +540,11 @@ Todos los errores tienen la forma de `ApiError`:
 | 401 | Credenciales incorrectas en login | `"Invalid credentials"` | "Correo o contraseña incorrectos." (sin cerrar sesión, porque no la hay) |
 | 403 | El rol no tiene permiso | `"Forbidden"` | Redirige a la pantalla de inicio de su rol con "No tienes acceso a esa sección." |
 | 404 | El producto no existe, es de otro vendedor o está oculto (catálogo) | `"Product not found"` | "El producto ya no existe. Es posible que otra persona lo haya eliminado." y recarga de la lista. En el detalle del catálogo: "Este producto ya no está disponible" |
-| 404 | La imagen no existe | `"Image not found"` | "La imagen ya no existe." y recarga del producto |
+| 404 | La imagen no existe (también en `GET /products/:id/images/...` si el producto está oculto) | `"Image not found"` | "La imagen ya no existe." y recarga del producto. En una `<img>` no se muestra texto |
 | 409 | `sku` duplicado en el mismo vendedor | `"SKU already exists"` | "Ya existe un producto con ese SKU." en el campo SKU |
 | 409 | `email` duplicado | `"Email already registered"` | "Ya existe una cuenta con ese correo." en el campo email |
 | 409 | Salida mayor al stock | `"Insufficient stock"` | "No hay suficiente stock para esa salida." en el diálogo de stock, y actualiza el stock mostrado |
-| 409 | El producto ya tiene 5 imágenes | `"Image limit reached"` | "Este producto ya tiene 5 imágenes." |
+| 409 | El producto ya tiene 4 imágenes | `"Image limit reached"` | "Este producto ya tiene 4 imágenes." |
 | 413 | Imagen de más de 1 MB | `"File too large"` | "La imagen pesa más de 1 MB." |
 | 415 | Formato de imagen no permitido | `"Unsupported file type"` | "Formato no permitido. Usa JPG, PNG o WebP." |
 | 429 | Límite de peticiones | `"Too many requests"` | "Demasiados intentos. Espera un minuto e inténtalo de nuevo." |
@@ -567,7 +571,7 @@ Para distinguir los distintos 409, el frontend usa la ruta del endpoint (`/selle
 | `POST /auth/login`, por IP | 5 peticiones por minuto |
 | `POST /seller/products/:id/images`, por usuario | 20 peticiones por minuto (el mismo límite también se cuenta por IP) |
 
-Los límites se cuentan por endpoint: cada ruta tiene su propio contador.
+Los límites se cuentan por endpoint: cada ruta tiene su propio contador. Los dos endpoints públicos de imagen no tienen límite (una página del catálogo pide hasta 48 miniaturas).
 
 ## 9. Reglas para cambiar el contrato
 
@@ -596,6 +600,11 @@ Los límites se cuentan por endpoint: cada ruta tiene su propio contador.
 - La búsqueda tampoco distingue tildes; `category` hasta 50 caracteres; booleanos con otro valor cuentan como `false`; orden de `/products/categories` (§4.6, §4.7).
 - Textos exactos del frontend para cada error, y errores 400 de resolución y de reordenamiento (§6.2).
 - Los límites se cuentan por endpoint, y el de subida también por IP (§8).
+
+**Almacenamiento de imágenes en MongoDB** (sin cambio de versión, decisión D19 del registro de implementación):
+- Las imágenes se guardan en base64 dentro del producto, no en disco. `url` y `thumbUrl` siguen siendo absolutas, pero apuntan a `GET /products/:id/images/:imageId` (y `/thumb`), públicos y sin token, en lugar de `/uploads/products/...` (§1, §2.2).
+- Máximo **4** imágenes por producto (antes 5) (§4.5, §6.2).
+- Los tipos de §3 no cambian, así que el frontend tampoco.
 
 ### 1.0.0
 - Versión inicial: auth y CRUD de productos (specs 01 y 02).

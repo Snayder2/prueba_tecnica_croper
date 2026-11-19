@@ -54,12 +54,6 @@ export class EnvironmentVariables {
     { message: 'PUBLIC_BASE_URL must be a URL such as http://localhost:3000' },
   )
   PUBLIC_BASE_URL: string;
-
-  // Folder for uploaded product images (relative to the backend folder or absolute).
-  @IsDefined(REQUIRED)
-  @IsString()
-  @IsNotEmpty(REQUIRED)
-  UPLOADS_DIR: string;
 }
 
 /**

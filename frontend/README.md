@@ -79,13 +79,13 @@ También puedes registrarte eligiendo "Quiero comprar" o "Quiero vender". Para v
 |---|---|---|
 | `/login`, `/register` | Inicio de sesión y registro con selector de rol | Pública |
 | `/` | Redirige según el rol: vendedor → `/seller/products`, comprador → `/catalog` | Con sesión |
-| `/catalog` | Catálogo en tarjetas con filtros | Comprador y vendedor |
-| `/catalog/:id` | Detalle con galería | Comprador y vendedor |
+| `/catalog` | Catálogo en tarjetas con filtros | Solo comprador |
+| `/catalog/:id` | Detalle con galería | Solo comprador |
 | `/seller/products` | Mis productos | Solo vendedor |
 
 - El rol sale de `GET /auth/me`; el token nunca se decodifica en el navegador.
 - Un comprador que escribe `/seller/products` termina en `/catalog` con el aviso "No tienes acceso a esa sección.".
-- La barra superior muestra "Mis productos" y "Catálogo" al vendedor, y solo "Catálogo" al comprador.
+- La barra superior muestra solo "Mis productos" al vendedor y solo "Catálogo" al comprador. Un vendedor que entra a `/catalog` vuelve a "Mis productos" con un aviso.
 
 ## Cómo está organizado
 

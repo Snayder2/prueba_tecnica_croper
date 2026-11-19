@@ -1,9 +1,12 @@
 import axios from 'axios';
 import { toAppError } from '../utils/errorMessages';
 
+// No fixed Content-Type: axios sets application/json for object bodies and
+// leaves FormData to the browser (multipart/form-data with its boundary).
+// A fixed application/json would make axios turn the image upload's FormData
+// into JSON ({"image":{}}), and the backend would answer "Image is required".
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
-  headers: { 'Content-Type': 'application/json' },
   timeout: 15_000,
 });
 

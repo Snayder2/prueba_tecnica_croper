@@ -5,7 +5,7 @@ import { IMAGE_ACCEPT } from '../../../utils/imageValidation';
 
 interface ImageDropzoneProps {
   onFiles: (files: File[]) => void;
-  /** Disabled when the product already has 5 images. */
+  /** Disabled when the product already has 4 images. */
   disabled?: boolean;
   /** Text under the zone (limits, or why it is disabled). */
   hint: string;

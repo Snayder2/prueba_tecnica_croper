@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import type { ProductImageRecord } from './schemas/product-image.schema.js';
+import type { ProductImageMeta } from './schemas/product-image.schema.js';
 import type { ProductRecord } from './schemas/product.schema.js';
 
 /** Public seller data inside a product. The seller's email is never exposed. */
@@ -37,7 +37,8 @@ export interface ProductView {
 /** Product as read with `populate('sellerId', 'name')`. */
 export type ProductWithSeller = Omit<ProductRecord, 'sellerId'> & { sellerId: SellerSummary };
 
-function toImageView(image: ProductImageRecord): ProductImageView {
+/** Whitelist: `mimeType` and the base64 data (`data`, `thumbData`) are never exposed. */
+function toImageView(image: ProductImageMeta): ProductImageView {
   return {
     _id: image._id,
     url: image.url,
@@ -49,7 +50,7 @@ function toImageView(image: ProductImageRecord): ProductImageView {
 
 /**
  * Whitelists the public fields: `sellerId` becomes `seller: { _id, name }` and
- * the internal storage `key` of each image is dropped.
+ * each image keeps only `_id`, `url`, `thumbUrl`, `width` and `height`.
  */
 export function toProductView(product: ProductRecord, seller: SellerSummary): ProductView {
   return {

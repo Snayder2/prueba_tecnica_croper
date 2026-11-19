@@ -1,34 +1,66 @@
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { ImageIcon } from '../../../components/icons';
 import { DiscountBadge, PriceTag } from '../../../components/PriceTag';
 import { FOCUS_RING } from '../../../components/styles';
 import type { Product } from '../../../types/product';
 import type { FromCatalogState } from '../ProductDetailPage';
+import { useRotatingIndex } from '../useRotatingIndex';
 
 /**
  * Catalog card (spec 03 §13.5): square image, discount badge, "Agotado" layer,
  * name in 2 lines, category, seller and price. The whole card links to the detail.
+ * With several images they rotate with a crossfade (useRotatingIndex); the
+ * rotation pauses while the pointer or the focus is on the card.
  */
 export function ProductCard({ product }: { product: Product }) {
-  const [main] = product.images;
+  const { images } = product;
+  const [paused, setPaused] = useState(false);
+  const current = useRotatingIndex(images.length, paused);
   const soldOut = product.stock === 0;
 
   return (
     <Link
       to={`/catalog/${product._id}`}
       state={{ fromCatalog: true } satisfies FromCatalogState}
+      onPointerEnter={() => setPaused(true)}
+      onPointerLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
       className={`group flex h-full flex-col overflow-hidden rounded-xl border border-navy-100 bg-white shadow-sm transition-shadow hover:shadow-md ${FOCUS_RING}`}
     >
-      <div className="relative aspect-square bg-navy-50">
-        {main ? (
-          <img
-            src={main.thumbUrl}
-            alt={product.name}
-            width={400}
-            height={400}
-            loading="lazy"
-            className="aspect-square w-full object-cover"
-          />
+      <div className="relative aspect-square overflow-hidden bg-navy-50">
+        {images.length > 0 ? (
+          <>
+            {images.map((image, index) => {
+              const visible = index === current;
+              return (
+                <img
+                  key={image._id}
+                  src={image.thumbUrl}
+                  // Only the visible image is announced; the others are decorative copies.
+                  alt={visible ? product.name : ''}
+                  aria-hidden={visible ? undefined : true}
+                  width={400}
+                  height={400}
+                  loading="lazy"
+                  className={`absolute inset-0 aspect-square w-full object-cover transition-opacity duration-700 motion-reduce:transition-none ${visible ? 'opacity-100' : 'opacity-0'}`}
+                />
+              );
+            })}
+            {images.length > 1 && (
+              <div className="absolute inset-x-0 bottom-2 flex justify-center gap-1.5" aria-hidden="true">
+                {images.map((image, index) => (
+                  <span
+                    key={image._id}
+                    data-testid="image-dot"
+                    data-active={index === current}
+                    className={`size-1.5 rounded-full shadow-sm transition-colors ${index === current ? 'bg-white' : 'bg-white/50'}`}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         ) : (
           <div className="flex size-full items-center justify-center text-navy-300" aria-hidden="true">
             <ImageIcon className="size-10" />

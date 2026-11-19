@@ -1,13 +1,13 @@
 import { useRef, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../app/hooks';
 import { Button } from '../../../components/Button';
-import { AlertIcon, StarIcon, TrashIcon } from '../../../components/icons';
+import { AlertIcon, TrashIcon } from '../../../components/icons';
 import { buttonClassName } from '../../../components/styles';
 import type { Product } from '../../../types/product';
 import { isAppError, MESSAGES } from '../../../utils/errorMessages';
 import { MAX_PRODUCT_IMAGES, validateImageFile } from '../../../utils/imageValidation';
 import { showNotification } from '../../ui/uiSlice';
-import { deleteImage, reorderImages, uploadImage } from '../sellerProductsSlice';
+import { deleteImage, uploadImage } from '../sellerProductsSlice';
 import { DialogShell } from './DialogShell';
 import { ImageDropzone } from './ImageDropzone';
 
@@ -30,8 +30,10 @@ interface ProductImagesDialogProps {
 const errorMessage = (error: unknown) => (isAppError(error) ? error.message : MESSAGES.unexpected);
 
 /**
- * "Imágenes" (spec 03 §13.4): current images with "3 de 5" and "Principal",
- * "Hacer principal" and "Eliminar" (with confirmation), and a drop zone. Files
+ * "Imágenes" (spec 03 §13.4): current images with "3 de 4" and "Principal"
+ * (the first one, in upload order), "Eliminar" (with confirmation) and a drop
+ * zone. There is no "Hacer principal": the catalog cards rotate all the
+ * images, so choosing a main one is not needed. Files
  * are validated before uploading and uploaded one by one with their own
  * progress bar.
  */
@@ -119,17 +121,6 @@ export function ProductImagesDialog({ product, intro, onClose }: ProductImagesDi
     }
   };
 
-  const makeMain = (imageId: string) =>
-    current &&
-    runImageAction(imageId, () =>
-      dispatch(
-        reorderImages({
-          id: current._id,
-          imageIds: [imageId, ...images.filter((image) => image._id !== imageId).map((image) => image._id)],
-        }),
-      ).unwrap(),
-    );
-
   const remove = (imageId: string) =>
     current &&
     runImageAction(imageId, () => dispatch(deleteImage({ id: current._id, imageId })).unwrap());
@@ -188,17 +179,6 @@ export function ProductImagesDialog({ product, intro, onClose }: ProductImagesDi
                     </div>
                   ) : (
                     <>
-                      {index > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => void makeMain(image._id)}
-                          disabled={busyImageId !== null}
-                          className={buttonClassName('ghost', 'w-full')}
-                        >
-                          <StarIcon className="size-4" />
-                          Hacer principal
-                        </button>
-                      )}
                       <button
                         type="button"
                         onClick={() => setConfirmDeleteId(image._id)}

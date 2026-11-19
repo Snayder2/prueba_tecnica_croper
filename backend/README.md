@@ -35,7 +35,6 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 | `JWT_EXPIRES_IN` | `1h` | Vigencia del token: segundos (`3600`) o `30m`, `1h`, `1d` |
 | `CORS_ORIGIN` | `http://localhost:5173` | Único origen permitido (el frontend) |
 | `PUBLIC_BASE_URL` | `http://localhost:3000` | Base de las URLs absolutas de las imágenes |
-| `UPLOADS_DIR` | `./uploads` | Carpeta de las imágenes subidas (en `.gitignore`); se sirve en `/uploads` |
 
 Todas son obligatorias. Si falta alguna o tiene un formato inválido, la app **no arranca** y dice cuál es:
 
@@ -51,7 +50,7 @@ Error: Invalid environment configuration (see backend/.env.example):
 | `npm run start:dev` | Desarrollo con recarga automática |
 | `npm run build` y luego `npm run start:prod` | Compila a `dist/` y ejecuta |
 | `npm test` | Tests unitarios (servicios, guards, pipes, imágenes, precio final, DTOs) |
-| `npm run test:e2e` | Tests end-to-end de los criterios de aceptación, incluidas la concurrencia del stock y la subida real de imágenes. Necesita MongoDB; usa la base `productos_db_e2e` y la carpeta `uploads-e2e`, y las borra al terminar |
+| `npm run test:e2e` | Tests end-to-end de los criterios de aceptación, incluidas la concurrencia del stock y la subida real de imágenes. Necesita MongoDB; usa la base `productos_db_e2e` y la borra al terminar |
 | `npm run lint` | Lint con oxlint |
 | `npm run docs:export` | Regenera `docs/openapi.json` (no necesita MongoDB) |
 | `npm run seed` | Reinicia la base con datos de prueba (ver abajo) |
@@ -69,7 +68,7 @@ mongosh productos_db --eval "db.dropDatabase()"   # opcional si tienes mongosh
 npm run seed
 ```
 
-`npm run seed` vacía las colecciones `users` y `products` (y recrea sus índices, así desaparece el índice único global de `sku` de la 1.0.0), borra `uploads/products/` y crea:
+`npm run seed` vacía las colecciones `users` y `products` (y recrea sus índices, así desaparece el índice único global de `sku` de la 1.0.0) y crea:
 
 - 30 productos de `seed/products.json` repartidos entre los dos vendedores: 8 con descuento, 3 agotados y 3 ocultos. Las imágenes de `seed/images/` (propias) se procesan con el mismo servicio de la app.
 - Estos usuarios, todos con la contraseña `Clave1234`:
@@ -131,6 +130,7 @@ curl "http://localhost:3000/api/v1/products?category=Fertilizantes&onSale=true&m
 | GET | `/products` | Cualquiera | 200 catálogo paginado | 400, 401 |
 | GET | `/products/categories` | Cualquiera | 200 `string[]` | 401 |
 | GET | `/products/:id` | Cualquiera | 200 `Product` | 400, 401, 404 |
+| GET | `/products/:id/images/:imageId` (y `/thumb`) | Público, sin token | 200 binario `image/webp` | 400, 404 |
 | GET | `/seller/products` | `seller` | 200 mis productos paginados | 400, 401, 403 |
 | GET | `/seller/products/:id` | `seller` | 200 `Product` | 400, 401, 403, 404 |
 | POST | `/seller/products` | `seller` | 201 `Product` | 400, 401, 403, 409 |
@@ -147,8 +147,9 @@ curl "http://localhost:3000/api/v1/products?category=Fertilizantes&onSale=true&m
 - **Stock y precio final:** el stock solo cambia al crear y con `stock-adjustments` (atómico: nunca queda negativo). `finalPrice` se recalcula en la misma escritura que cambia `price` o el descuento.
 - **Imágenes:**
   - Un archivo por petición, en el campo `image`.
-  - JPEG, PNG o WebP según su contenido real; máximo 1 MB, 40 megapíxeles y 5 por producto.
-  - Se re-codifican a WebP (1200 px y miniatura de 400 × 400) sin metadatos, y se sirven sin token en `/uploads/products/...`.
+  - JPEG, PNG o WebP según su contenido real; máximo 1 MB, 40 megapíxeles y 4 por producto.
+  - Se re-codifican a WebP (1200 px y miniatura de 400 × 400) sin metadatos y se guardan en base64 dentro del producto en MongoDB. Los listados y el detalle nunca traen ese base64.
+  - Se sirven sin token en `GET /api/v1/products/:id/images/:imageId` (y `/thumb`), solo si el producto está activo.
 
 Todos los errores tienen la forma:
 
@@ -170,7 +171,7 @@ Todos los errores tienen la forma:
 - **Imágenes**:
   - Multer en memoria, que corta la lectura al pasar 1 MB.
   - Validación por *magic numbers* (`file-type`) y re-codificación con `sharp` (`limitInputPixels`).
-  - `Cross-Origin-Resource-Policy: cross-origin` solo en `/uploads`.
+  - `Cross-Origin-Resource-Policy: cross-origin` solo en el endpoint público de imágenes.
 - **helmet** para headers seguros y **CORS** restringido a `CORS_ORIGIN`.
 - En errores 500 solo se responde `Internal server error`; el detalle va al log del servidor.
 
@@ -186,9 +187,8 @@ src/
 ├── modules/
 │   ├── auth/               # registro, login, JWT strategy/guard, @CurrentUser
 │   ├── users/              # schema y servicio de usuarios
-│   ├── products/           # schemas, DTOs, servicio, CatalogController, SellerProductsController, pricing
-│   ├── images/             # multer.config, ImageFilePipe, ImageProcessingService (sharp)
-│   └── storage/            # StorageService + LocalDiskStorage
+│   ├── products/           # schemas, DTOs, servicio, CatalogController, ProductImagesController, SellerProductsController, pricing
+│   └── images/             # multer.config, ImageFilePipe, ImageProcessingService (sharp)
 └── scripts/                # export-openapi.ts y seed.ts
 seed/                       # products.json e imágenes de ejemplo
 test/app.e2e-spec.ts        # criterios de aceptación de las specs 01 §11 y 03 §17
@@ -202,7 +202,7 @@ Los controladores solo reciben y responden, la lógica está en los servicios y 
 - **Registro abierto**: cualquiera puede registrarse, para facilitar la evaluación.
 - **Lecturas protegidas**: también el catálogo requiere JWT.
 - **Producto ajeno → 404**, no 403: no revela si el producto existe.
-- **Imágenes en disco local** detrás de `StorageService`; para la nube bastaría otra implementación (S3, Cloudinary).
+- **Imágenes en base64 dentro de MongoDB** (máximo 4 de 1 MB por producto, muy por debajo de los 16 MB de BSON): sin archivos que sincronizar ni limpiar. Con más volumen se usaría S3 o Cloudinary (decisión D19).
 - Las decisiones de la implementación de la spec 03 están en [docs/specs/IMPLEMENTATION_LOG.md](../docs/specs/IMPLEMENTATION_LOG.md).
 - En `PATCH`, enviar `null` borra `description` o `category`; para campos obligatorios devuelve 400.
 - NestJS 12 es ESM-only y su CLI trae Vitest y oxlint, que se usan en lugar de Jest y ESLint.

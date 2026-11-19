@@ -17,7 +17,7 @@ const DESCRIPTION = `API REST de un pequeño marketplace agro (NestJS + MongoDB)
 3. Pulsa **Authorize**, pega el token y prueba los endpoints. La subida de imágenes muestra un selector de archivo.
 
 Un comprador recibe 403 en \`/seller/...\`, y un producto de otro vendedor responde 404.
-Las imágenes se sirven en \`/uploads/products/...\` sin token.
+Las imágenes se guardan en MongoDB y se sirven sin token en \`GET /products/:id/images/:imageId\` (y \`/thumb\`).
 Todos los errores usan el mismo formato (\`ErrorResponseDto\`).`;
 
 export function createSwaggerDocument(app: INestApplication): OpenAPIObject {

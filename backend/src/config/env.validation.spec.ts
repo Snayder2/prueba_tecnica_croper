@@ -8,7 +8,6 @@ const valid = {
   JWT_EXPIRES_IN: '1h',
   CORS_ORIGIN: 'http://localhost:5173',
   PUBLIC_BASE_URL: 'http://localhost:3000',
-  UPLOADS_DIR: './uploads',
 };
 
 describe('validateEnv', () => {
@@ -16,7 +15,7 @@ describe('validateEnv', () => {
     expect(validateEnv(valid)).toMatchObject({ ...valid, PORT: 3000 });
   });
 
-  it.each(['JWT_SECRET', 'MONGO_URI', 'PUBLIC_BASE_URL', 'UPLOADS_DIR'])(
+  it.each(['JWT_SECRET', 'MONGO_URI', 'PUBLIC_BASE_URL'])(
     'refuses to start without %s',
     (key) => {
       const config: Record<string, string> = { ...valid };

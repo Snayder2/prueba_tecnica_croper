@@ -8,10 +8,7 @@ import { FOCUS_RING } from './styles';
 
 /** Links of the top bar by role (spec 03 §13.1). */
 const NAV_LINKS: Record<UserRole, { to: string; label: string }[]> = {
-  seller: [
-    { to: '/seller/products', label: 'Mis productos' },
-    { to: '/catalog', label: 'Catálogo' },
-  ],
+  seller: [{ to: '/seller/products', label: 'Mis productos' }],
   buyer: [{ to: '/catalog', label: 'Catálogo' }],
 };
 

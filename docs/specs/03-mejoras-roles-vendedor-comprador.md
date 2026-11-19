@@ -16,7 +16,7 @@ Convertir la app en un pequeño marketplace con dos tipos de usuario:
 **Incluye**
 - Rol de usuario elegido al registrarse (`seller` o `buyer`) y autorización por rol.
 - Productos asociados al vendedor que los crea. Un vendedor solo ve y modifica los suyos.
-- Imágenes de producto: hasta 5 por producto, máximo 1 MB cada una, JPEG, PNG o WebP. La primera es la principal.
+- Imágenes de producto: hasta 4 por producto, máximo 1 MB cada una, JPEG, PNG o WebP. La primera es la principal. Se guardan en base64 dentro del producto en MongoDB (sección 7.5).
 - Ajuste de stock como acción independiente (entrada / salida), atómico y sin dejar stock negativo.
 - Descuento porcentual por producto, con precio final calculado por el backend.
 - Activar/ocultar un producto del catálogo.
@@ -28,7 +28,7 @@ Convertir la app en un pequeño marketplace con dos tipos de usuario:
 - Historial de movimientos de stock (se menciona como mejora futura).
 - Descuentos con fecha de inicio/fin, cupones o descuentos por cantidad.
 - Un usuario con los dos roles a la vez, o un rol `admin`.
-- Almacenamiento de imágenes en la nube (queda preparado con una interfaz, ver 7.5).
+- Almacenamiento de imágenes en archivos, en disco o en la nube (S3, Cloudinary): se guardan en MongoDB (ver 7.5).
 
 ## 3. Resumen de cambios
 
@@ -47,7 +47,7 @@ Convertir la app en un pequeño marketplace con dos tipos de usuario:
 | Acción | Sin sesión | `buyer` | `seller` |
 |---|---|---|---|
 | Registrarse / login | ✅ | — | — |
-| Ver catálogo y detalle (`/products`) | ❌ 401 | ✅ | ✅ |
+| Ver catálogo y detalle (`/products`) | ❌ 401 | ✅ | ✅ en la API; en el frontend no (sección 13.1) |
 | Listar mis productos (`/seller/products`) | ❌ 401 | ❌ 403 | ✅ solo los suyos |
 | Crear, editar, eliminar | ❌ 401 | ❌ 403 | ✅ solo los suyos |
 | Imágenes, stock, descuento | ❌ 401 | ❌ 403 | ✅ solo los suyos |
@@ -70,7 +70,7 @@ Convertir la app en un pequeño marketplace con dos tipos de usuario:
 | Campo | Tipo | Reglas |
 |---|---|---|
 | `sellerId` | ObjectId (ref `User`) | Obligatorio. Lo asigna el backend desde el token, **nunca** viene en el body. |
-| `images` | `ProductImage[]` | Máximo 5. El orden importa: `images[0]` es la principal. Por defecto `[]`. |
+| `images` | `ProductImage[]` | Máximo 4. El orden importa: `images[0]` es la principal. Por defecto `[]`. |
 | `discountPercent` | number (entero) | 0 a 90. `0` = sin descuento. Por defecto `0`. |
 | `finalPrice` | number | Calculado por el backend: `round(price × (100 − discountPercent) / 100, 2)`. Se guarda para poder filtrar y ordenar por precio final. |
 | `sku` | string | Mismas reglas de formato, pero ahora es único **por vendedor** (dos vendedores pueden usar el mismo SKU). |
@@ -81,10 +81,14 @@ Convertir la app en un pequeño marketplace con dos tipos de usuario:
 | Campo | Tipo | Descripción |
 |---|---|---|
 | `_id` | ObjectId | Identificador de la imagen. |
-| `key` | string | Nombre interno del archivo (`<uuid>.webp`). No se expone en la API. |
-| `url` | string | URL absoluta de la imagen grande (máx. 1200 px). |
-| `thumbUrl` | string | URL absoluta de la miniatura (400 px), para tarjetas y tabla. |
+| `mimeType` | string | Tipo de `data` y `thumbData`: siempre `image/webp` (el servidor re-codifica). No se expone en la API. |
+| `data` | string | Imagen grande (WebP, máx. 1200 px) en base64. `select: false`. No se expone en la API. |
+| `thumbData` | string | Miniatura (WebP, 400 px) en base64. `select: false`. No se expone en la API. |
+| `url` | string | URL absoluta de la imagen grande: `GET /products/:id/images/:imageId` (sección 7.4). |
+| `thumbUrl` | string | URL absoluta de la miniatura: la misma más `/thumb`. Para tarjetas y tabla. |
 | `width` / `height` | number | Tamaño de la imagen grande, para reservar espacio y evitar saltos de diseño. |
+
+**Los listados y el detalle nunca traen el base64.** Todas las consultas de productos usan la proyección `WITHOUT_IMAGE_DATA` (`{ 'images.data': 0, 'images.thumbData': 0 }`), incluidas las escrituras que devuelven el producto, y `toProductView` solo copia `_id`, `url`, `thumbUrl`, `width` y `height`. Solo el endpoint público de la sección 7.4 lee `data` o `thumbData`, y de una sola imagen.
 
 **Índices**
 - `{ sellerId: 1, sku: 1 }` único (reemplaza al índice único de `sku`).
@@ -150,7 +154,7 @@ Query de `GET /products`:
 | DELETE | `/seller/products/:id/discount` | Quitar descuento | 200 `Product` | 400, 401, 403, 404 |
 | POST | `/seller/products/:id/images` | Subir **una** imagen (`multipart/form-data`, campo `image`) | 201 `Product` | 400, 401, 403, 404, 409, 413, 415 |
 | DELETE | `/seller/products/:id/images/:imageId` | Eliminar una imagen | 200 `Product` | 400, 401, 403, 404 |
-| PUT | `/seller/products/:id/images/order` | Reordenar (la primera es la principal) | 200 `Product` | 400, 401, 403, 404 |
+| PUT | `/seller/products/:id/images/order` | Reordenar (la primera es la principal). El frontend ya no lo usa (sección 13.4), pero sigue en el contrato | 200 `Product` | 400, 401, 403, 404 |
 
 - Query de `GET /seller/products`: igual que en 1.0 (`page`, `limit`, `search`, `sortBy`, `order`), más `sortBy=finalPrice`.
 - Las acciones de stock, descuento e imágenes devuelven el `Product` completo actualizado, para que el frontend reemplace la fila sin volver a pedir la lista.
@@ -164,7 +168,7 @@ Query de `GET /products`:
 |---|---|---|
 | Tamaño máximo | **1 MB = 1 048 576 bytes** por archivo | 413 `"File too large"` |
 | Formatos | JPEG, PNG, WebP (se valida el contenido real, no solo la extensión ni el `Content-Type`) | 415 `"Unsupported file type"` |
-| Cantidad | Máximo 5 por producto | 409 `"Image limit reached"` |
+| Cantidad | Máximo 4 por producto | 409 `"Image limit reached"` |
 | Archivos por petición | 1 | 400 |
 | Resolución máxima de entrada | 40 megapíxeles (evita "bombas" de descompresión) | 400 `"Image dimensions too large"` |
 
@@ -250,38 +254,46 @@ Detalles importantes:
 
 1. Multer recibe el archivo en memoria con los límites de 7.2, y `ImageFilePipe` confirma que existe.
 2. `ImageFilePipe` detecta el tipo real por los primeros bytes (*magic numbers*) con `file-type`. Si no es JPEG/PNG/WebP → 415. Los pipes se ejecutan antes que el método del controlador, por eso esta validación va antes que la del paso 3.
-3. Se comprueba que el producto existe y es del vendedor (si no, 404), y que todavía no tiene 5 imágenes (si no, 409), **antes** de procesar la imagen, para no gastar CPU en vano. El paso 6 sigue siendo la garantía real del límite.
+3. Se comprueba que el producto existe y es del vendedor (si no, 404), y que todavía no tiene 4 imágenes (si no, 409), **antes** de procesar la imagen, para no gastar CPU en vano. El paso 6 sigue siendo la garantía real del límite.
 4. Se procesa con `sharp` (si no puede decodificar el archivo → 415 `"Unsupported file type"`; si pasa de 40 megapíxeles → 400 `"Image dimensions too large"`):
    - `rotate()` para respetar la orientación EXIF.
    - Imagen grande: máximo 1200 × 1200 px sin agrandar, WebP calidad 80.
    - Miniatura: 400 × 400 px, recorte centrado (`cover`), WebP calidad 75.
    - Se eliminan los metadatos (ubicación GPS, cámara, etc.). `sharp` lo hace por defecto al re-codificar.
    - `limitInputPixels: 40_000_000`.
-5. Se guardan los dos archivos con un nombre aleatorio (`<uuid>.webp` y `<uuid>_thumb.webp`). El nombre original del usuario nunca se usa.
+5. Los dos buffers procesados se pasan a base64 (`data` y `thumbData`, con `mimeType: 'image/webp'`). No se escribe nada en disco y el nombre original del usuario nunca se usa. `url` y `thumbUrl` se arman con `PUBLIC_BASE_URL`, el id del producto y un id nuevo de imagen.
 6. Se agrega al producto con una actualización condicional para que dos subidas simultáneas no pasen el límite:
    ```ts
    findOneAndUpdate(
-     { _id, sellerId, 'images.4': { $exists: false } },
+     { _id, sellerId, 'images.3': { $exists: false } },
      { $push: { images: newImage } },
      { returnDocument: 'after' }, // `new: true` está obsoleto en Mongoose 9
-   )
+   ).select(WITHOUT_IMAGE_DATA)
    ```
-   Si no actualiza nada → 409 (y se borran los archivos recién guardados).
+   Si no actualiza nada → 409 (o 404 si el producto se borró entretanto). No queda nada que limpiar: la imagen solo existía en memoria.
 
 Re-codificar todas las imágenes tiene un efecto de seguridad: lo que se sirve siempre es un WebP generado por el servidor, nunca el archivo original del usuario.
 
 ### 7.4 Cómo se sirven
 
-- Ruta estática `/uploads/products/...` fuera del prefijo de la API y **sin JWT** (una etiqueta `<img>` no puede enviar el header `Authorization`). Las imágenes de producto se consideran públicas.
-- Headers: `Cache-Control: public, max-age=31536000, immutable` (el nombre nunca se reutiliza) y `X-Content-Type-Options: nosniff`.
-- **Importante con helmet**: por defecto envía `Cross-Origin-Resource-Policy: same-origin`, que **bloquea** las imágenes cuando el frontend está en `localhost:5173`. Para `/uploads` se usa `cross-origin`.
-- Las URLs que devuelve la API son absolutas, construidas con `PUBLIC_BASE_URL`. Así, cambiar a un CDN no afecta al frontend.
+- Endpoint público dentro del prefijo de la API, **sin JWT** (una etiqueta `<img>` no puede enviar el header `Authorization`). Las imágenes de producto se consideran públicas:
+  - `GET /products/:id/images/:imageId`: imagen grande.
+  - `GET /products/:id/images/:imageId/thumb`: miniatura.
+- Vive en su propio controlador (`ProductImagesController`, tag `Catalog` en Swagger), porque `CatalogController` exige token en todas sus rutas.
+- Lee de MongoDB solo la versión pedida de esa imagen (agregación con `$unwind` + `$project`) y responde el binario.
+- **Solo sirve imágenes de productos activos.** Un producto oculto o inexistente, o una imagen que no existe, responden 404 `"Image not found"`. Un id con formato inválido responde 400 `"Invalid id"`.
+- Headers: `Content-Type: image/webp`, `Cache-Control: public, max-age=31536000, immutable` (el id de una imagen nunca se reutiliza: una subida nueva es un id nuevo) y `X-Content-Type-Options: nosniff`.
+- **Importante con helmet**: por defecto envía `Cross-Origin-Resource-Policy: same-origin`, que **bloquea** las imágenes cuando el frontend está en `localhost:5173`. Este endpoint responde `cross-origin`; el resto de la API mantiene `same-origin`.
+- No cuenta para el límite global de peticiones (`@SkipThrottle`), igual que la ruta estática anterior: una página del catálogo pide hasta 48 miniaturas y la caché del navegador las conserva.
+- Las URLs que devuelve la API son absolutas, construidas con `PUBLIC_BASE_URL`. El contrato no cambia: el frontend sigue usando `url` y `thumbUrl`.
 
 ### 7.5 Almacenamiento
 
-Interfaz `StorageService` con `save(key, buffer)`, `delete(key)` y `getPublicUrl(key)`. La implementación de esta versión es `LocalDiskStorage` (carpeta `UPLOADS_DIR`, incluida en `.gitignore`). Para la nube bastaría con una implementación `S3Storage` o `CloudinaryStorage`, sin tocar los servicios.
+Las imágenes se guardan **dentro del documento del producto**, en base64, en el subdocumento `ProductImage` (`data`, `thumbData` y `mimeType`). No hay archivos en disco, ni carpeta `uploads/`, ni `StorageService`.
 
-Al eliminar una imagen o un producto, primero se actualiza la base de datos y después se borran los archivos. Si falla el borrado de un archivo, se registra en el log y no se devuelve error (un archivo huérfano es preferible a un producto que apunta a una imagen inexistente).
+Cabe de sobra en un documento: cada archivo de entrada pesa como máximo 1 MB, la versión WebP re-codificada suele pesar menos, y base64 le suma un 33 %. Con 4 imágenes (grande + miniatura), un producto queda en pocos MB, muy por debajo del límite de 16 MB de BSON (ver la decisión D19 del registro de implementación).
+
+Borrar un producto (`deleteOne`) o una imagen (`$pull`) ya borra sus datos, en la misma operación. Reordenar reconstruye el arreglo dentro de MongoDB con un *update pipeline* (`$map` + `$filter` sobre los subdocumentos guardados), así que el base64 nunca viaja a Node.
 
 ## 8. Ajuste de stock
 
@@ -344,9 +356,9 @@ Se mantiene el formato `ApiError`. Se agregan los siguientes (la lista completa,
 | 400 | `imageIds` distinto de las imágenes actuales | `["imageIds must contain exactly the current image ids"]` | "Las imágenes cambiaron. Vuelve a intentarlo." y recarga el producto |
 | 400 | Subida mal formada | `"Image is required"`, `"Unexpected file field - file"`, `"Too many files"`, `"Too many fields"` | "No se pudo subir la imagen." |
 | 403 | Rol sin permiso (p. ej. comprador en `/seller/...`) | `"Forbidden"` | Redirige a la pantalla de inicio de su rol con "No tienes acceso a esa sección." |
-| 404 | La imagen no existe | `"Image not found"` | "La imagen ya no existe." y recarga el producto |
+| 404 | La imagen no existe (al borrarla, o en el endpoint público: también si el producto está oculto) | `"Image not found"` | "La imagen ya no existe." y recarga el producto. En una `<img>` no se muestra texto |
 | 409 | Salida mayor al stock | `"Insufficient stock"` | "No hay suficiente stock para esa salida." en el diálogo |
-| 409 | Ya hay 5 imágenes | `"Image limit reached"` | "Este producto ya tiene 5 imágenes." |
+| 409 | Ya hay 4 imágenes | `"Image limit reached"` | "Este producto ya tiene 4 imágenes." |
 | 409 | SKU repetido **en el mismo vendedor** | `"SKU already exists"` | Igual que en 1.0 |
 | 413 | Imagen de más de 1 MB | `"File too large"` | "La imagen pesa más de 1 MB." |
 | 415 | Formato no permitido | `"Unsupported file type"` | "Formato no permitido. Usa JPG, PNG o WebP." |
@@ -473,14 +485,15 @@ Límites de peticiones (§8 del contrato): se agrega "Subida de imágenes, por u
 |---|---|---|
 | `/login`, `/register` | Igual que en 1.0, más el selector de rol en el registro | Pública |
 | `/` | Redirige según el rol: `seller` → `/seller/products`, `buyer` → `/catalog` | Protegida |
-| `/catalog` | Catálogo en tarjetas | `buyer` y `seller` |
-| `/catalog/:id` | Detalle con galería | `buyer` y `seller` |
+| `/catalog` | Catálogo en tarjetas | Solo `buyer` |
+| `/catalog/:id` | Detalle con galería | Solo `buyer` |
 | `/seller/products` | Gestión de mis productos (la tabla de 1.0 ampliada) | Solo `seller` |
 | `*` | No encontrada | Pública |
 
 - `ProtectedRoute` recibe `roles?: UserRole[]`. Con rol incorrecto redirige a la pantalla de inicio del rol del usuario y muestra "No tienes acceso a esa sección".
 - Después del login también se redirige según el rol.
-- La barra superior muestra enlaces según el rol: el vendedor ve "Mis productos" y "Catálogo"; el comprador solo el catálogo.
+- La barra superior muestra enlaces según el rol: el vendedor solo ve "Mis productos" y el comprador solo "Catálogo".
+- **El vendedor no usa el catálogo**: solo crea y gestiona sus productos, y su pantalla de inicio es "Mis productos" (`/seller/products`), igual después del login. Si escribe `/catalog` o `/catalog/:id`, termina en `/seller/products` con "No tienes acceso a esa sección.". Es una regla de la interfaz: la API (`GET /products`) sigue aceptando a cualquier usuario autenticado, porque el catálogo solo muestra datos públicos.
 
 ### 13.2 Registro
 
@@ -524,11 +537,11 @@ Parte de la tabla de 1.0 y agrega:
 - Botones "Guardar" y, si ya tiene descuento, "Quitar descuento".
 
 **Diálogo "Imágenes"**
-- Cuadrícula con las imágenes actuales y el contador "3 de 5". La primera lleva la etiqueta "Principal".
-- Por imagen: "Hacer principal" (la mueve al inicio con el endpoint de orden) y "Eliminar" (con confirmación).
+- Cuadrícula con las imágenes actuales y el contador "3 de 4". La primera lleva la etiqueta "Principal".
+- Por imagen: "Eliminar" (con confirmación). **No hay "Hacer principal"**: la principal es la primera en orden de subida, y como las tarjetas del catálogo rotan todas las imágenes (sección 13.5), elegirla no hace falta. La etiqueta "Principal" se mantiene en la primera, porque es la que se ve en la tabla del vendedor, al empezar la rotación y en el detalle.
 - Zona para arrastrar y soltar más un botón "Elegir archivos" (`<input type="file" accept="image/jpeg,image/png,image/webp" multiple>`). Se pueden elegir varias; se suben **una por una** con barra de progreso individual.
 - Validación en el cliente antes de subir (misma regla que el backend): "foto.png pesa 2,3 MB. El máximo es 1 MB." / "documento.pdf no es una imagen válida. Usa JPG, PNG o WebP." Los archivos rechazados no se envían; los demás sí.
-- La zona de carga se desactiva al llegar a 5 imágenes.
+- La zona de carga se desactiva al llegar a 4 imágenes.
 
 **Formulario de crear/editar**
 - Al crear se pide el stock inicial. Al editar, el stock se muestra solo como lectura, con un enlace "Ajustar stock".
@@ -558,6 +571,11 @@ Cualquier cambio de filtro vuelve a la página 1.
 
 **Tarjeta de producto (`ProductCard`)**
 - Imagen cuadrada (`aspect-square object-cover`) con `thumbUrl`, `loading="lazy"`, `alt` con el nombre del producto. Si no tiene imagen, se muestra un fondo `bg-navy-50` con un icono.
+- **Imágenes que rotan**: si el producto tiene más de una imagen, la tarjeta las va mostrando una tras otra, empezando por `images[0]`, cada 3 segundos (`CARD_IMAGE_ROTATION_MS`), con un fundido (`transition-opacity`) y vuelve a la primera después de la última. Unos puntos abajo indican cuál se está viendo.
+  - La rotación se pausa mientras el puntero o el foco están sobre la tarjeta.
+  - No rota si el usuario tiene activado "reducir movimiento" (`prefers-reduced-motion`): se queda en la primera.
+  - Solo la imagen visible tiene `alt`; las demás son copias decorativas (`alt=""`, `aria-hidden`), para que un lector de pantalla no repita el nombre.
+  - La lógica vive en el hook `features/catalog/useRotatingIndex.ts`.
 - Etiqueta `-15%` arriba a la izquierda cuando hay descuento.
 - Si `stock = 0`: capa semitransparente "Agotado" sobre la imagen (la tarjeta sigue visible, salvo que esté activo el filtro "Solo disponibles").
 - Nombre (máximo 2 líneas, `line-clamp-2`), categoría y "por {nombre del vendedor}".
@@ -617,21 +635,20 @@ Con eso desaparece también el índice único viejo de `sku`. Mongoose crea los 
 
 Como no hay datos viejos, los campos nuevos pueden ser obligatorios desde el principio: `role` en usuarios y `sellerId` en productos, sin valores por defecto ni casos especiales para documentos incompletos.
 
-**Datos de prueba (`npm run seed`)**. Antes de insertar, limpia las colecciones `users` y `products` y la carpeta `uploads/products/`, así que se puede ejecutar varias veces y siempre deja el mismo estado.
+**Datos de prueba (`npm run seed`)**. Antes de insertar, limpia las colecciones `users` y `products` (las imágenes viven dentro de los productos), así que se puede ejecutar varias veces y siempre deja el mismo estado.
 - 2 vendedores, 1 comprador (credenciales en el README).
 - 30 productos repartidos en varias categorías, algunos con descuento, algunos agotados y algunos ocultos.
-- Imágenes de ejemplo propias o de libre uso en `backend/seed/images/`, procesadas con el mismo servicio de imágenes de la app.
+- Imágenes de ejemplo propias o de libre uso en `backend/seed/images/`, procesadas con el mismo servicio de imágenes de la app y guardadas en base64 dentro de cada producto. Nunca más de 4 por producto.
 - El script vive en `src/scripts/seed.ts` (no en `backend/scripts/`): necesita los servicios de Nest, que usan decoradores, y solo `src/` se compila. Se ejecuta con `nest build && node dist/scripts/seed.js`, igual que `docs:export`.
 
 ## 15. Configuración
 
-Backend (`.env.example`), se agregan:
+Backend (`.env.example`), se agrega:
 ```
 PUBLIC_BASE_URL=http://localhost:3000
-UPLOADS_DIR=./uploads
 ```
 
-Las dos son obligatorias y se validan al arrancar, igual que las demás. `PUBLIC_BASE_URL` debe ser una URL con protocolo.
+Es obligatoria y se valida al arrancar, igual que las demás. Debe ser una URL con protocolo. (`UPLOADS_DIR` existió mientras las imágenes se guardaban en disco; ya no se usa.)
 
 Frontend (`.env.example`):
 ```
@@ -643,7 +660,6 @@ VITE_API_URL=http://localhost:3000/api/v1
 ```
 backend/
 ├── seed/images/
-├── uploads/                      # en .gitignore
 └── src/
     ├── scripts/
     │   └── seed.ts                   # junto a export-openapi.ts (ver sección 14)
@@ -653,15 +669,14 @@ backend/
     │   ├── guards/user-throttler.guard.ts
     │   └── utils/escape-regexp.ts    # lo usa search-regex.util.ts (1.0)
     └── modules/
-        ├── storage/
-        │   ├── storage.service.ts        # interfaz
-        │   └── local-disk.storage.ts
         ├── images/
         │   ├── multer.config.ts              # límites y fileFilter de Multer
         │   ├── image-file.pipe.ts            # archivo obligatorio + magic numbers
         │   └── image-processing.service.ts   # sharp
         └── products/
             ├── catalog.controller.ts         # /products
+            ├── product-images.controller.ts  # /products/:id/images/:imageId (público)
+            ├── image-urls.ts                 # url y thumbUrl con PUBLIC_BASE_URL
             ├── seller-products.controller.ts # /seller/products
             ├── products.service.ts
             ├── pricing.ts                    # calculateFinalPrice
@@ -726,15 +741,17 @@ frontend/src/
 - [ ] Un descuento de 0 o de 91 devuelve 400.
 
 **Imágenes**
-- [ ] Subir un JPEG de 900 KB devuelve 201 y el producto con `url` y `thumbUrl` que cargan en el navegador desde `localhost:5173`.
+- [ ] Subir un JPEG de 900 KB devuelve 201 y el producto con `url` y `thumbUrl` que cargan en el navegador desde `localhost:5173`, sin token.
 - [ ] Subir un archivo de 1 048 577 bytes devuelve 413.
 - [ ] Subir un `.txt` renombrado a `.png` devuelve 415.
-- [ ] La sexta imagen devuelve 409.
+- [ ] La quinta imagen devuelve 409.
 - [ ] Sin archivo devuelve 400 `"Image is required"`; con el campo llamado `file` en lugar de `image`, 400 `"Unexpected file field - file"`; con dos archivos, 400.
 - [ ] Un comprador o una petición sin token que sube una imagen recibe 403/401 sin que Multer llegue a leer el archivo.
 - [ ] En Swagger, el endpoint de subida muestra un selector de archivo y se puede probar desde ahí.
 - [ ] Las imágenes guardadas son WebP y no conservan metadatos EXIF.
-- [ ] Eliminar un producto borra sus archivos de `uploads/`.
+- [ ] Las imágenes se guardan en base64 dentro del producto, y ningún listado ni detalle devuelve ese base64.
+- [ ] La imagen de un producto oculto, o una imagen inexistente, responde 404.
+- [ ] Eliminar un producto o una imagen borra sus datos: sus URLs responden 404.
 
 **Catálogo**
 - [ ] `GET /products` no devuelve productos ocultos, y su detalle responde 404.
@@ -746,12 +763,15 @@ frontend/src/
 **Frontend**
 - [ ] El login del vendedor lleva a `/seller/products`; el del comprador, a `/catalog`.
 - [ ] Un comprador que escribe `/seller/products` en la URL termina en `/catalog` con aviso.
+- [ ] Un vendedor que escribe `/catalog` o `/catalog/:id` termina en `/seller/products` con aviso, y su barra superior solo muestra "Mis productos".
 - [ ] Ajustar stock, aplicar descuento, ocultar y subir imágenes actualizan la fila sin recargar toda la tabla.
 - [ ] Elegir una imagen de 2 MB muestra el error sin hacer ninguna petición.
 - [ ] La subida muestra una barra de progreso por archivo.
 - [ ] Los filtros del catálogo se reflejan en la URL; al recargar o compartir el enlace se ven los mismos resultados.
 - [ ] A 360 px el catálogo muestra 2 columnas y los filtros en un panel lateral; a 1280 px, el panel de filtros fijo y 4 columnas.
 - [ ] Las tarjetas de productos agotados muestran "Agotado".
+- [ ] En el catálogo, una tarjeta con varias imágenes las va rotando cada 3 segundos; se pausa con el puntero o el foco encima y no rota con "reducir movimiento".
+- [ ] El diálogo "Imágenes" del vendedor no ofrece "Hacer principal".
 - [ ] Redux DevTools muestra `pending/fulfilled/rejected` de los thunks nuevos.
 
 **Calidad**
@@ -772,7 +792,7 @@ Como en las specs anteriores, cada tarea se pide por separado y se valida antes 
 5. Query del catálogo: filtros, booleanos bien convertidos, búsqueda escapada y `GET /products/categories`.
 6. Ajuste de stock atómico, y quitar `stock` del `UpdateProductDto`.
 7. `calculateFinalPrice`, endpoints de descuento y recálculo en `PATCH` con *update pipeline*.
-8. `StorageService` + `LocalDiskStorage`, ruta estática `/uploads` con los headers correctos (incluido CORP en helmet).
+8. `StorageService` + `LocalDiskStorage`, ruta estática `/uploads` con los headers correctos (incluido CORP en helmet). *Reemplazada después por el almacenamiento en MongoDB y el endpoint público de la sección 7.4 (decisión D19).*
 9. Imágenes: `multer.config.ts` (sección 7.2), `ImageFilePipe`, `ImageProcessingService` (sharp) y endpoints de subir, eliminar y reordenar, con su documentación `multipart` en Swagger. Límite de 20 por minuto. Instalar `@types/multer` como dependencia de desarrollo.
 10. Script de datos de prueba (`npm run seed`). Documentar en el README que se parte de una base vacía.
 11. Tests: guard de roles, stock (incluida la concurrencia), precio final, validación de imágenes. Los que necesitan MongoDB real (concurrencia del stock, `$push` condicional, subida de archivos) van en la suite e2e (`npm run test:e2e`), que también se actualiza a la 1.1.0.
@@ -783,7 +803,7 @@ Como en las specs anteriores, cada tarea se pide por separado y se valida antes 
 14. `authSlice` con rol, `ProtectedRoute` con `roles`, redirección por rol y selector de rol en el registro.
 15. Renombrar a `features/seller`. Extraer `Pagination` y `PriceTag`. Columnas nuevas y menú de acciones.
 16. `StockAdjustDialog`, `DiscountDialog` e interruptor de visibilidad.
-17. `ProductImagesDialog` + `ImageDropzone` con validación, progreso y reordenamiento. Abrirlo después de crear.
+17. `ProductImagesDialog` + `ImageDropzone` con validación, progreso y reordenamiento. Abrirlo después de crear. *Después se quitó "Hacer principal" y se agregó la rotación de imágenes en las tarjetas del catálogo (secciones 13.4 y 13.5).*
 18. `catalogSlice`, `catalogQuery.ts` y `CatalogPage` con grilla y tarjetas.
 19. Filtros: panel de escritorio, panel lateral en móvil y chips de filtros activos.
 20. `ProductDetailPage` con galería.
@@ -797,10 +817,11 @@ Como en las specs anteriores, cada tarea se pide por separado y se valida antes 
 - **Sin migración de datos**: se borra la base porque es una prueba. En producción haría falta un script que asigne rol a los usuarios existentes y dueño a los productos, rellene `discountPercent`, `finalPrice` e `images`, y cambie el índice único de `sku` por `{ sellerId, sku }`.
 - **Catálogo con sesión obligatoria**: se mantiene la decisión de la spec 01 (todo protegido). Lo más común en una tienda es que el catálogo sea público y la sesión se pida solo al comprar. Cambiarlo es sencillo: quitar el guard de `CatalogController`.
 - **404 en lugar de 403 para productos ajenos**: no revela si el producto existe y simplifica las consultas. La desventaja es que el mensaje es menos explícito al depurar.
-- **Imágenes en disco local**: suficiente para la prueba. En la nube el disco del contenedor no es persistente, así que se usaría S3/Cloudinary (la interfaz ya lo permite). Se explica en el ejercicio 5.
+- **Imágenes en base64 dentro de MongoDB**: no hay archivos que sincronizar ni que limpiar, el borrado es atómico y funciona igual en un contenedor sin disco persistente. Cabe porque cada imagen pesa como máximo 1 MB y hay 4 por producto (muy por debajo de los 16 MB de BSON). El costo: base64 ocupa un 33 % más, cada imagen pasa por Node y por la base, y no hay CDN. Con imágenes más grandes o más tráfico se usaría S3/Cloudinary (decisión D19).
 - **Imágenes públicas sin token**: necesario para usar `<img>` directamente. Si algún día hubiera imágenes privadas, se usarían URLs firmadas con vencimiento.
-- **Una imagen por petición**: simplifica la validación, los errores por archivo y la barra de progreso. Subir 5 imágenes son 5 peticiones (cabe de sobra en el límite de 20 por minuto).
+- **Una imagen por petición**: simplifica la validación, los errores por archivo y la barra de progreso. Subir 4 imágenes son 4 peticiones (cabe de sobra en el límite de 20 por minuto).
 - **Stock solo por ajustes, sin historial**: el siguiente paso natural es una colección `stock_movements` (quién, cuándo, tipo, cantidad, motivo) para tener auditoría.
 - **Descuento sin fechas**: agregar `discountEndsAt` obliga a calcular el precio final al consultar (o a un proceso programado que lo limpie), porque el `finalPrice` guardado quedaría desactualizado al vencer.
 - **Rol fijo y único**: un usuario no puede ser vendedor y comprador a la vez. Si se necesitara, `role` pasaría a ser `roles: UserRole[]`.
+- **Rotación automática en lugar de elegir la principal**: el comprador ve todas las imágenes sin entrar al detalle y el vendedor no tiene que decidir cuál va primero. Se pausa con el puntero o el foco, y no rota con "reducir movimiento", para no molestar ni marear. El endpoint de orden se conserva en la API (quitarlo sería un cambio incompatible del contrato) y se podría volver a usar si se quisiera elegir el orden.
 - **Paginación numerada en el catálogo**: se reutiliza el componente de la tabla. "Cargar más" o el scroll infinito son habituales en tiendas, pero complican el estado y la sincronización con la URL.

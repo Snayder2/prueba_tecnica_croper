@@ -14,7 +14,7 @@ export const MESSAGES = {
   // Contract 1.1.0 §6.2
   forbidden: 'No tienes acceso a esa sección.',
   insufficientStock: 'No hay suficiente stock para esa salida.',
-  imageLimit: 'Este producto ya tiene 5 imágenes.',
+  imageLimit: 'Este producto ya tiene 4 imágenes.',
   imageTooLarge: 'La imagen pesa más de 1 MB.',
   unsupportedImage: 'Formato no permitido. Usa JPG, PNG o WebP.',
   imageUploadFailed: 'No se pudo subir la imagen.',

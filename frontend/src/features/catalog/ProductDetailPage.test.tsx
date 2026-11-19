@@ -16,8 +16,8 @@ const api = vi.mocked(catalogApi);
 
 const image = (n: number): ProductImage => ({
   _id: `673a01c9c4e5b8a9d0f1240${n}`,
-  url: `http://localhost:3000/uploads/products/${n}.webp`,
-  thumbUrl: `http://localhost:3000/uploads/products/${n}_thumb.webp`,
+  url: `http://localhost:3000/api/v1/products/p1/images/${n}`,
+  thumbUrl: `http://localhost:3000/api/v1/products/p1/images/${n}/thumb`,
   width: 1200,
   height: 900,
 });

@@ -1,13 +1,8 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, QueryFilter, Types, UpdateWithAggregationPipeline } from 'mongoose';
-import { randomUUID } from 'node:crypto';
+import { EnvironmentVariables } from '../../config/env.validation.js';
 import { PaginatedResponse } from '../../common/interfaces/paginated-response.interface.js';
 import { isDuplicateKeyError } from '../../common/utils/mongo-errors.util.js';
 import { buildSearchRegex } from '../../common/utils/search-regex.util.js';
@@ -23,11 +18,19 @@ import {
   toProductView,
   toProductViewWithSeller,
 } from './product-view.js';
-import { ImageProcessingService } from '../images/image-processing.service.js';
-import { StorageService } from '../storage/storage.service.js';
+import {
+  ImageProcessingService,
+  PROCESSED_IMAGE_MIME,
+} from '../images/image-processing.service.js';
+import { ImageVariant, productImageUrls } from './image-urls.js';
 import { calculateFinalPrice, finalPriceExpression } from './pricing.js';
 import type { ProductImageRecord } from './schemas/product-image.schema.js';
-import { MAX_PRODUCT_IMAGES, Product, ProductRecord } from './schemas/product.schema.js';
+import {
+  MAX_PRODUCT_IMAGES,
+  Product,
+  ProductRecord,
+  WITHOUT_IMAGE_DATA,
+} from './schemas/product.schema.js';
 
 const REQUIRED_FIELDS = ['name', 'price', 'sku', 'isActive'] as const;
 
@@ -49,8 +52,11 @@ const imageLimitReached = () => new ConflictException('Image limit reached');
 const imageIdsMismatch = () =>
   new BadRequestException(['imageIds must contain exactly the current image ids']);
 
-/** `<uuid>.webp` → `<uuid>_thumb.webp`. Only the large image key is stored. */
-export const thumbnailKey = (key: string) => key.replace(/\.webp$/, '_thumb.webp');
+/** Binary of one image version, as served by the public image endpoint. */
+export interface ImageContent {
+  mimeType: string;
+  buffer: Buffer;
+}
 
 /**
  * Catalog reads see only active products of every seller. Seller operations
@@ -59,13 +65,15 @@ export const thumbnailKey = (key: string) => key.replace(/\.webp$/, '_thumb.webp
  */
 @Injectable()
 export class ProductsService {
-  private readonly logger = new Logger(ProductsService.name);
+  private readonly publicBaseUrl: string;
 
   constructor(
     @InjectModel(Product.name) private readonly productModel: Model<Product>,
-    private readonly storage: StorageService,
     private readonly imageProcessing: ImageProcessingService,
-  ) {}
+    config: ConfigService<EnvironmentVariables, true>,
+  ) {
+    this.publicBaseUrl = config.get('PUBLIC_BASE_URL', { infer: true });
+  }
 
   // ---------- Catalog ----------
 
@@ -88,6 +96,7 @@ export class ProductsService {
   async findCatalogProduct(id: string): Promise<ProductView> {
     const product = await this.productModel
       .findOne({ _id: id, isActive: true })
+      .select(WITHOUT_IMAGE_DATA)
       .populate(SELLER_POPULATE)
       .lean<ProductWithSeller>()
       .exec();
@@ -115,6 +124,7 @@ export class ProductsService {
   async findSellerProduct(id: string, seller: SellerSummary): Promise<ProductView> {
     const product = await this.productModel
       .findOne({ _id: id, sellerId: seller._id })
+      .select(WITHOUT_IMAGE_DATA)
       .lean<ProductRecord>()
       .exec();
     if (!product) {
@@ -182,6 +192,7 @@ export class ProductsService {
 
     const product = await this.productModel
       .findOneAndUpdate(filter, { $inc: { stock: delta } }, { returnDocument: 'after' })
+      .select(WITHOUT_IMAGE_DATA)
       .lean<ProductRecord>()
       .exec();
     if (product) {
@@ -193,16 +204,14 @@ export class ProductsService {
     throw exists ? new ConflictException('Insufficient stock') : productNotFound();
   }
 
-  /** Deletes the product and then its image files (spec 03 §7.5). */
+  /** Deletes the product; its images live inside the document and go with it. */
   async remove(id: string, seller: SellerSummary): Promise<void> {
-    const deleted = await this.productModel
-      .findOneAndDelete({ _id: id, sellerId: seller._id })
-      .lean<ProductRecord>()
+    const { deletedCount } = await this.productModel
+      .deleteOne({ _id: id, sellerId: seller._id })
       .exec();
-    if (!deleted) {
+    if (deletedCount === 0) {
       throw productNotFound();
     }
-    await this.deleteImageFiles(deleted.images);
   }
 
   // ---------- Images ----------
@@ -211,6 +220,7 @@ export class ProductsService {
    * Adds one image at the end of `images` (spec 03 §7.3). The product and the
    * image count are checked before the CPU-heavy processing; the conditional
    * $push is what really guarantees the limit when uploads arrive at once.
+   * The processed WebP files are stored in base64 inside the product.
    */
   async addImage(
     id: string,
@@ -218,7 +228,11 @@ export class ProductsService {
     file: Express.Multer.File,
   ): Promise<ProductView> {
     const owned = { _id: id, sellerId: seller._id };
-    const current = await this.productModel.findOne(owned).select('images').lean<ProductRecord>().exec();
+    const current = await this.productModel
+      .findOne(owned)
+      .select({ 'images._id': 1 })
+      .lean<Pick<ProductRecord, 'images'>>()
+      .exec();
     if (!current) {
       throw productNotFound();
     }
@@ -227,30 +241,25 @@ export class ProductsService {
     }
 
     const processed = await this.imageProcessing.process(file.buffer);
-    const key = `${randomUUID()}.webp`;
+    const imageId = new Types.ObjectId();
     const image: ProductImageRecord = {
-      _id: new Types.ObjectId(),
-      key,
-      url: this.storage.getPublicUrl(key),
-      thumbUrl: this.storage.getPublicUrl(thumbnailKey(key)),
+      _id: imageId,
+      mimeType: PROCESSED_IMAGE_MIME,
+      data: processed.large.toString('base64'),
+      thumbData: processed.thumbnail.toString('base64'),
+      ...productImageUrls(this.publicBaseUrl, id, imageId.toString()),
       width: processed.width,
       height: processed.height,
     };
-    await this.storage.save(key, processed.large);
-    try {
-      await this.storage.save(thumbnailKey(key), processed.thumbnail);
-    } catch (error) {
-      await this.deleteImageFiles([image]);
-      throw error;
-    }
 
     const product = await this.productModel
       .findOneAndUpdate(
-        // No 5th image (index 4) yet → fewer than MAX_PRODUCT_IMAGES (5).
-        { ...owned, 'images.4': { $exists: false } },
+        // No 4th image (index 3) yet → fewer than MAX_PRODUCT_IMAGES (4).
+        { ...owned, 'images.3': { $exists: false } },
         { $push: { images: image } },
         { returnDocument: 'after' },
       )
+      .select(WITHOUT_IMAGE_DATA)
       .lean<ProductRecord>()
       .exec();
     if (product) {
@@ -258,15 +267,18 @@ export class ProductsService {
     }
 
     // Another upload filled the last slot (or the product was deleted) meanwhile.
-    await this.deleteImageFiles([image]);
     const exists = await this.productModel.exists(owned).exec();
     throw exists ? imageLimitReached() : productNotFound();
   }
 
-  /** Removes one image from the product, then its files. */
+  /** Removes one image (and its data) from the product. */
   async deleteImage(id: string, seller: SellerSummary, imageId: string): Promise<ProductView> {
     const owned = { _id: id, sellerId: seller._id };
-    const current = await this.productModel.findOne(owned).select('images').lean<ProductRecord>().exec();
+    const current = await this.productModel
+      .findOne(owned)
+      .select({ 'images._id': 1 })
+      .lean<Pick<ProductRecord, 'images'>>()
+      .exec();
     if (!current) {
       throw productNotFound();
     }
@@ -281,31 +293,37 @@ export class ProductsService {
         { $pull: { images: { _id: image._id } } },
         { returnDocument: 'after' },
       )
+      .select(WITHOUT_IMAGE_DATA)
       .lean<ProductRecord>()
       .exec();
     if (!product) {
       // Deleted by a concurrent request between both queries.
       throw imageNotFound();
     }
-    await this.deleteImageFiles([image]);
     return toProductView(product, seller);
   }
 
   /**
    * Sets a new order for the current images; the first one becomes the main
    * image. `imageIds` must be exactly the current ids. The update only matches
-   * if the images did not change since they were read.
+   * if the images did not change since they were read. The array is rebuilt
+   * inside MongoDB (update pipeline), so the base64 data never travels to Node.
    */
   async reorderImages(id: string, seller: SellerSummary, imageIds: string[]): Promise<ProductView> {
     const owned = { _id: id, sellerId: seller._id };
-    const current = await this.productModel.findOne(owned).lean<ProductRecord>().exec();
+    const current = await this.productModel
+      .findOne(owned)
+      .select(WITHOUT_IMAGE_DATA)
+      .lean<ProductRecord>()
+      .exec();
     if (!current) {
       throw productNotFound();
     }
 
-    const byId = new Map(current.images.map((image) => [image._id.toString(), image]));
+    const currentIds = new Set(current.images.map((image) => image._id.toString()));
     const sameSet =
-      imageIds.length === current.images.length && imageIds.every((imageId) => byId.has(imageId));
+      imageIds.length === current.images.length &&
+      imageIds.every((imageId) => currentIds.has(imageId));
     if (!sameSet) {
       throw imageIdsMismatch();
     }
@@ -320,9 +338,10 @@ export class ProductsService {
           images: { $size: imageIds.length },
           'images._id': { $all: current.images.map((image) => image._id) },
         },
-        { $set: { images: imageIds.map((imageId) => byId.get(imageId)) } },
-        { returnDocument: 'after' },
+        [{ $set: { images: reorderedImagesExpression(imageIds) } }],
+        { returnDocument: 'after', updatePipeline: true },
       )
+      .select(WITHOUT_IMAGE_DATA)
       .lean<ProductRecord>()
       .exec();
     if (product) {
@@ -333,22 +352,35 @@ export class ProductsService {
     throw exists ? imageIdsMismatch() : productNotFound();
   }
 
-  // ---------- Helpers ----------
+  // ---------- Public image endpoint ----------
 
   /**
-   * The database is updated first and the files are removed afterwards. A file
-   * that cannot be removed is only logged: an orphan file is better than a
-   * product pointing to a missing image (spec 03 §7.5).
+   * Binary of one image of an active product (spec 03 §7.4). A hidden
+   * product, an unknown product or an unknown image all answer 404. Only the
+   * requested version is projected, never the whole document.
    */
-  private async deleteImageFiles(images: Pick<ProductImageRecord, 'key'>[]): Promise<void> {
-    const keys = images.flatMap((image) => [image.key, thumbnailKey(image.key)]);
-    const results = await Promise.allSettled(keys.map((key) => this.storage.delete(key)));
-    results.forEach((result, index) => {
-      if (result.status === 'rejected') {
-        this.logger.warn(`Could not delete image file ${keys[index]}: ${String(result.reason)}`);
-      }
-    });
+  async findImageContent(id: string, imageId: string, variant: ImageVariant): Promise<ImageContent> {
+    const [image] = await this.productModel
+      .aggregate<{ mimeType: string; data: string }>([
+        { $match: { _id: new Types.ObjectId(id), isActive: true } },
+        { $unwind: '$images' },
+        { $match: { 'images._id': new Types.ObjectId(imageId) } },
+        {
+          $project: {
+            _id: 0,
+            mimeType: '$images.mimeType',
+            data: variant === 'thumb' ? '$images.thumbData' : '$images.data',
+          },
+        },
+      ])
+      .exec();
+    if (!image) {
+      throw imageNotFound();
+    }
+    return { mimeType: image.mimeType, buffer: Buffer.from(image.data, 'base64') };
   }
+
+  // ---------- Helpers ----------
 
   /** Catalog filters (contract §4.6). Prices apply to finalPrice. */
   private buildCatalogFilter(query: CatalogQueryDto): QueryFilter<Product> {
@@ -382,6 +414,7 @@ export class ProductsService {
     const direction = order === 'asc' ? 1 : -1;
     const query = this.productModel
       .find(filter)
+      .select(WITHOUT_IMAGE_DATA)
       // _id as tie-breaker keeps pagination stable when sort values repeat.
       .sort({ [sortBy]: direction, _id: direction })
       .skip((page - 1) * limit)
@@ -411,6 +444,7 @@ export class ProductsService {
         returnDocument: 'after',
         updatePipeline: true,
       })
+      .select(WITHOUT_IMAGE_DATA)
       .lean<ProductRecord>()
       .exec();
     if (!product) {
@@ -450,4 +484,24 @@ export class ProductsService {
   private translateError(error: unknown): unknown {
     return isDuplicateKeyError(error) ? new ConflictException('SKU already exists') : error;
   }
+}
+
+/**
+ * `images` in the order of `imageIds`, built from the stored subdocuments
+ * (data included) inside the update pipeline. The caller already checked that
+ * the ids are exactly the current ones.
+ */
+function reorderedImagesExpression(imageIds: string[]) {
+  return {
+    $map: {
+      input: { $literal: imageIds.map((imageId) => new Types.ObjectId(imageId)) },
+      as: 'imageId',
+      in: {
+        $arrayElemAt: [
+          { $filter: { input: '$images', cond: { $eq: ['$$this._id', '$$imageId'] } } },
+          0,
+        ],
+      },
+    },
+  };
 }

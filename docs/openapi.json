@@ -715,6 +715,184 @@
         ]
       }
     },
+    "/api/v1/products/{id}/images/{imageId}": {
+      "get": {
+        "description": "Imagen grande (WebP, máximo 1200 px de lado). Público: no necesita token, porque una etiqueta `<img>` no envía el header `Authorization`. Es la URL que devuelven `url` y `thumbUrl` en `Product.images`. Solo sirve imágenes de productos activos: un producto oculto o inexistente, o una imagen que no existe, responden 404. Sin límite de peticiones (como antes la ruta estática): una página del catálogo carga hasta 48 miniaturas y la caché del navegador las conserva.",
+        "operationId": "ProductImagesController_getImage",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ObjectId del producto (24 caracteres hexadecimales)",
+            "schema": {
+              "example": "6739f3b2c4e5b8a9d0f12346",
+              "type": "string"
+            }
+          },
+          {
+            "name": "imageId",
+            "required": true,
+            "in": "path",
+            "description": "ObjectId de la imagen",
+            "schema": {
+              "example": "673a01c9c4e5b8a9d0f12401",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Binario WebP. Headers: `Cache-Control: public, max-age=31536000, immutable`, `X-Content-Type-Options: nosniff` y `Cross-Origin-Resource-Policy: cross-origin`.",
+            "content": {
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "id o imageId con formato inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "id con formato inválido",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": "Invalid id",
+                      "path": "/api/v1/products/abc/images/abc",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "El producto no existe o está oculto, o la imagen no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Imagen no encontrada",
+                    "value": {
+                      "statusCode": 404,
+                      "error": "Not Found",
+                      "message": "Image not found",
+                      "path": "/api/v1/products/6739f3b2c4e5b8a9d0f12346/images/673a01c9c4e5b8a9d0f12401",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Imagen de un producto",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/v1/products/{id}/images/{imageId}/thumb": {
+      "get": {
+        "description": "Miniatura (WebP, 400 × 400 px). Público: no necesita token, porque una etiqueta `<img>` no envía el header `Authorization`. Es la URL que devuelven `url` y `thumbUrl` en `Product.images`. Solo sirve imágenes de productos activos: un producto oculto o inexistente, o una imagen que no existe, responden 404. Sin límite de peticiones (como antes la ruta estática): una página del catálogo carga hasta 48 miniaturas y la caché del navegador las conserva.",
+        "operationId": "ProductImagesController_getThumbnail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ObjectId del producto (24 caracteres hexadecimales)",
+            "schema": {
+              "example": "6739f3b2c4e5b8a9d0f12346",
+              "type": "string"
+            }
+          },
+          {
+            "name": "imageId",
+            "required": true,
+            "in": "path",
+            "description": "ObjectId de la imagen",
+            "schema": {
+              "example": "673a01c9c4e5b8a9d0f12401",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Binario WebP. Headers: `Cache-Control: public, max-age=31536000, immutable`, `X-Content-Type-Options: nosniff` y `Cross-Origin-Resource-Policy: cross-origin`.",
+            "content": {
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "id o imageId con formato inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "id con formato inválido",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": "Invalid id",
+                      "path": "/api/v1/products/abc/images/abc",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "El producto no existe o está oculto, o la imagen no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Imagen no encontrada",
+                    "value": {
+                      "statusCode": 404,
+                      "error": "Not Found",
+                      "message": "Image not found",
+                      "path": "/api/v1/products/6739f3b2c4e5b8a9d0f12346/images/673a01c9c4e5b8a9d0f12401/thumb",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Miniatura de una imagen",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
     "/api/v1/seller/products": {
       "get": {
         "description": "Productos del vendedor del token, activos y ocultos, paginados. `search` busca en el nombre sin distinguir mayúsculas ni tildes.",
@@ -2094,7 +2272,7 @@
     },
     "/api/v1/seller/products/{id}/images": {
       "post": {
-        "description": "Un archivo por petición, en el campo `image` (`multipart/form-data`, sin campos de texto). JPEG, PNG o WebP según su contenido real, máximo 1 MB (1 048 576 bytes) y 40 megapíxeles. Se re-codifica a WebP (máximo 1200 px y miniatura de 400 × 400) sin metadatos y se agrega al final de `images`. Máximo 5 imágenes por producto. Límite: 20 subidas por minuto por usuario.",
+        "description": "Un archivo por petición, en el campo `image` (`multipart/form-data`, sin campos de texto). JPEG, PNG o WebP según su contenido real, máximo 1 MB (1 048 576 bytes) y 40 megapíxeles. Se re-codifica a WebP (máximo 1200 px y miniatura de 400 × 400) sin metadatos y se agrega al final de `images` (se guarda en base64 dentro del producto). Máximo 4 imágenes por producto. Límite: 20 subidas por minuto por usuario.",
         "operationId": "SellerProductsController_uploadImage",
         "parameters": [
           {
@@ -2278,7 +2456,7 @@
             }
           },
           "409": {
-            "description": "El producto ya tiene 5 imágenes",
+            "description": "El producto ya tiene 4 imágenes",
             "content": {
               "application/json": {
                 "schema": {
@@ -2379,7 +2557,7 @@
     },
     "/api/v1/seller/products/{id}/images/{imageId}": {
       "delete": {
-        "description": "Se quita del producto y después se borran sus archivos.",
+        "description": "Se quita del producto junto con sus datos.",
         "operationId": "SellerProductsController_deleteImage",
         "parameters": [
           {
@@ -2732,7 +2910,7 @@
   },
   "info": {
     "title": "API de Productos – Vendedores y compradores",
-    "description": "API REST de un pequeño marketplace agro (NestJS + MongoDB), contrato 1.1.0.\n\n- **Vendedor (`seller`)**: gestiona sus productos en `Seller products`: CRUD, stock, descuento e imágenes.\n- **Comprador (`buyer`)**: consulta el catálogo de todos los vendedores en `Catalog`.\n\n**Cómo probarla desde aquí**\n1. `POST /auth/register` con `role: \"seller\"` o `\"buyer\"` (o usa los usuarios de `npm run seed`).\n2. `POST /auth/login`: copia el `accessToken` de la respuesta.\n3. Pulsa **Authorize**, pega el token y prueba los endpoints. La subida de imágenes muestra un selector de archivo.\n\nUn comprador recibe 403 en `/seller/...`, y un producto de otro vendedor responde 404.\nLas imágenes se sirven en `/uploads/products/...` sin token.\nTodos los errores usan el mismo formato (`ErrorResponseDto`).",
+    "description": "API REST de un pequeño marketplace agro (NestJS + MongoDB), contrato 1.1.0.\n\n- **Vendedor (`seller`)**: gestiona sus productos en `Seller products`: CRUD, stock, descuento e imágenes.\n- **Comprador (`buyer`)**: consulta el catálogo de todos los vendedores en `Catalog`.\n\n**Cómo probarla desde aquí**\n1. `POST /auth/register` con `role: \"seller\"` o `\"buyer\"` (o usa los usuarios de `npm run seed`).\n2. `POST /auth/login`: copia el `accessToken` de la respuesta.\n3. Pulsa **Authorize**, pega el token y prueba los endpoints. La subida de imágenes muestra un selector de archivo.\n\nUn comprador recibe 403 en `/seller/...`, y un producto de otro vendedor responde 404.\nLas imágenes se guardan en MongoDB y se sirven sin token en `GET /products/:id/images/:imageId` (y `/thumb`).\nTodos los errores usan el mismo formato (`ErrorResponseDto`).",
     "version": "1.1.0",
     "contact": {}
   },
@@ -2951,13 +3129,13 @@
           },
           "url": {
             "type": "string",
-            "description": "URL absoluta de la imagen grande (WebP, máximo 1200 px de lado)",
-            "example": "http://localhost:3000/uploads/products/9b1f6e2a-4c7d-4e0b-a1f3-2d8c5e7b9a10.webp"
+            "description": "URL absoluta de la imagen grande (WebP, máximo 1200 px de lado). Pública, sin token",
+            "example": "http://localhost:3000/api/v1/products/6739f3b2c4e5b8a9d0f12346/images/673a01c9c4e5b8a9d0f12401"
           },
           "thumbUrl": {
             "type": "string",
-            "description": "URL absoluta de la miniatura (WebP, 400 × 400 px)",
-            "example": "http://localhost:3000/uploads/products/9b1f6e2a-4c7d-4e0b-a1f3-2d8c5e7b9a10_thumb.webp"
+            "description": "URL absoluta de la miniatura (WebP, 400 × 400 px). Pública, sin token",
+            "example": "http://localhost:3000/api/v1/products/6739f3b2c4e5b8a9d0f12346/images/673a01c9c4e5b8a9d0f12401/thumb"
           },
           "width": {
             "type": "number",
@@ -3047,7 +3225,7 @@
             "example": true
           },
           "images": {
-            "description": "Hasta 5 imágenes. `images[0]` es la principal; puede estar vacío",
+            "description": "Hasta 4 imágenes. `images[0]` es la principal; puede estar vacío",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ProductImageResponseDto"
@@ -3276,7 +3454,7 @@
         "properties": {
           "imageIds": {
             "description": "Ids de las imágenes actuales del producto en el nuevo orden (la primera es la principal). Deben ser exactamente los actuales, sin repetidos ni faltantes.",
-            "maxItems": 5,
+            "maxItems": 4,
             "example": [
               "673a01c9c4e5b8a9d0f12402",
               "673a01c9c4e5b8a9d0f12401"

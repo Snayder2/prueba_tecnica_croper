@@ -28,6 +28,7 @@ Decisiones sobre puntos que los documentos no definían o en los que se contrade
 | D16 | Límites de peticiones | Se documenta que el throttler cuenta por endpoint (la clave incluye controlador y método). | Es el comportamiento de `@nestjs/throttler`; el contrato hablaba de un límite "global". |
 | D17 | Tests que necesitan MongoDB | Concurrencia del stock, `$push` condicional y subida real de archivos van en `npm run test:e2e`, que se actualiza a la 1.1.0. En cada tarea del backend se ejecuta también la suite e2e. | Los tests unitarios usan mocks del modelo y no pueden probar atomicidad. La suite e2e de la 1.0 se rompería en silencio si nadie la actualiza. |
 | D18 | Borrar la base sin `mongosh` | `mongosh` no está instalado en esta máquina. El seed borra las colecciones y recrea los índices, así que sirve para reiniciar. | Requisito de la fase 2. |
+| D19 | Imágenes en base64 dentro de MongoDB, máximo 4 por producto | Reemplaza a `LocalDiskStorage`, la ruta estática `/uploads` y `UPLOADS_DIR`. Multer, `ImageFilePipe` y `sharp` no cambian; los dos WebP procesados se guardan en base64 en `ProductImage` (`data`, `thumbData`, `mimeType`, con `select: false` en los datos). Todas las consultas de productos excluyen el base64 con la proyección `WITHOUT_IMAGE_DATA`, y reordenar reconstruye el arreglo dentro de MongoDB (*update pipeline*) para no traerlo a Node. `url` y `thumbUrl` apuntan a `GET /products/:id/images/:imageId` (y `/thumb`): público, solo productos activos (oculto o inexistente → 404 `"Image not found"`), con caché `immutable`, `nosniff` y CORP `cross-origin`, y sin límite de peticiones (`@SkipThrottle`), como la ruta estática que reemplaza. El límite baja a 4 con `'images.3': { $exists: false }`. El contrato sigue en 1.1.0. | Cada archivo de entrada pesa como máximo 1 MB (el WebP re-codificado suele pesar menos) y base64 le suma un 33 %: con 4 imágenes y sus miniaturas, un producto queda muy por debajo del límite de 16 MB de un documento BSON. A cambio, no hay archivos que sincronizar ni huérfanos que limpiar (borrar un producto o una imagen borra sus datos en la misma operación) y funciona igual en un contenedor sin disco persistente. Bajar a 4 deja más margen. Se mantiene 1.1.0 porque los tipos del contrato no cambian, el frontend no se toca y sigue siendo una prueba técnica (excepción de la regla 9); con clientes externos, el endpoint nuevo sería una 1.2.0. |
 
 ## Fase 0 – Cambios a los documentos
 
@@ -595,3 +596,54 @@ No queda ningún criterio sin cumplir.
 - **Specs 01 y 02:** encabezado con estado "implementada (1.0.0) y ampliada por la spec 03 (1.1.0)" y una tabla "Cambios en la versión 1.1.0", sección por sección. No se reescribe el texto de la 1.0, que documenta la respuesta a los ejercicios 1 y 2.
 - **Spec 03:** estado "implementada".
 - **README** (raíz, backend y frontend): actualizados en la tarea 23 (roles, credenciales, base vacía, seed, endpoints y capturas nuevas).
+
+## Cambio posterior: imágenes en MongoDB y máximo 4 por producto (D19)
+
+Las tareas 8, 9 y 10 y la verificación de la fase 2 describen el almacenamiento en disco tal como se implementó primero. Este cambio solo modifica dónde se guardan las imágenes y cuántas caben; el resto de la spec 03 sigue igual.
+
+- **Hecho:**
+  - **Schema:** `ProductImage` cambia `key` por `mimeType`, `data` y `thumbData` (base64, `select: false`). `MAX_PRODUCT_IMAGES = 4`, y el `$push` condicional usa `'images.3': { $exists: false }`. Los productos se leen con `WITHOUT_IMAGE_DATA` en todas las consultas (listados, detalle, escrituras que devuelven el producto y lecturas previas de la subida, el borrado y el reordenamiento).
+  - **Servicio:** `addImage` pasa los buffers de `sharp` a base64 y arma las URLs con `PUBLIC_BASE_URL` (`image-urls.ts`). Borrar un producto es un `deleteOne`, y borrar una imagen, un `$pull`: ya no hay limpieza de archivos. Reordenar usa un *update pipeline* (`$map` + `$filter` sobre los subdocumentos guardados). `findImageContent` proyecta solo la versión pedida de una imagen de un producto activo.
+  - **Endpoint público:** `ProductImagesController` con `GET /products/:id/images/:imageId` y `.../thumb`, sin JWT y con `@SkipThrottle()`. Responde un `StreamableFile` `image/webp` con `Cache-Control: public, max-age=31536000, immutable`, `X-Content-Type-Options: nosniff` y `Cross-Origin-Resource-Policy: cross-origin`. Documentado en Swagger (tag `Catalog`: respuesta 200 binaria, 400 y 404 con ejemplos).
+  - **Se quitan:** el módulo `storage` (`StorageService`, `LocalDiskStorage` y su test), la ruta estática `/uploads` de `app.setup.ts`, `UPLOADS_DIR` (validación, `.env.example`, config e2e) y la limpieza de `uploads/` en el seed. `.gitignore` conserva `uploads/` para que no se suban copias viejas que queden en local.
+  - **Seed:** genera el `_id` de cada producto antes de insertarlo (las URLs lo necesitan), guarda las imágenes en base64 y nunca pasa de 4 por producto.
+  - **Frontend:** `MAX_PRODUCT_IMAGES = 4` (contador "X de 4" y la zona de carga se desactiva en 4) y el texto "Este producto ya tiene 4 imágenes.". Los tipos y la capa de API no cambian.
+  - **Documentos:** spec 03 (§2, §5.2, §7, §10, §13.4, §14–17, §19 y una nota en la tarea 8), contrato (§1, §2.2, §4.5, §5.3, §6.2, §8 y §10, sin cambio de versión), `docs/openapi.json`, README del backend y tabla de cambios de la spec 01.
+- **Archivos:** `products/schemas/product-image.schema.ts`, `products/schemas/product.schema.ts`, `products/products.service.ts` (+ spec), `products/product-images.controller.ts` (nuevo), `products/image-urls.ts` (nuevo), `products/product-view.ts`, `products/products.module.ts`, `products/seller-products.controller.ts`, `products/dto/product-response.dto.ts`, `images/image-processing.service.ts`, `app.setup.ts`, `main.ts`, `config/env.validation.ts` (+ spec), `config/swagger.config.ts`, `scripts/seed.ts`, `test/app.e2e-spec.ts`, `vitest.config.e2e.ts`, `.env.example`; se elimina `modules/storage/`. Frontend: `utils/imageValidation.ts`, `utils/errorMessages.ts` (+ test), `features/seller/components/{ImageDropzone,ProductImagesDialog}.tsx`, `ProductImagesDialog.test.tsx` y URLs de ejemplo en otros dos tests.
+- **Verificación:**
+  - Backend: `npm test` 100/100 ✅ · `npm run test:e2e` 85/85 ✅ · lint ✅ · build ✅ · `docs:export` ✅ (`info.version` 1.1.0, 19 operaciones).
+  - Frontend: `npm test` 101/101 ✅ · lint ✅ · build ✅.
+  - `npm run seed` contra una base temporal (borrada después): 3 usuarios, 30 productos, 31 imágenes, como máximo 2 por producto; el documento más grande pesa unos 27 KB.
+- **Criterios de la §17 (actualizados):**
+  - Un JPEG de ~900 KB devuelve 201, y `url` y `thumbUrl` cargan sin token, en WebP, con caché `immutable`, `nosniff` y CORP `cross-origin`.
+  - La quinta imagen devuelve 409 `"Image limit reached"`, y dos subidas simultáneas por el último lugar dan 201 + 409.
+  - Las imágenes se guardan en base64 en el documento (se comprueba leyendo la colección directamente), y ningún listado, detalle ni escritura del vendedor o del catálogo devuelve ese base64.
+  - La imagen de un producto oculto responde 404 y vuelve a servirse al activarlo; una imagen inexistente responde 404 y un id inválido, 400.
+  - Reordenar conserva los datos de cada imagen (cada URL sigue sirviendo su imagen), y borrar una imagen o el producto deja sus URLs en 404.
+- **Notas:**
+  - Una base de desarrollo sembrada antes de este cambio tiene imágenes con `key` y sin `data`: sus URLs viejas (`/uploads/...`) ya no existen. Hay que volver a ejecutar `npm run seed`.
+  - `select: false` en `data`/`thumbData` es una red de seguridad: las consultas igual declaran la proyección, como pide el cambio. El endpoint público usa una agregación, que no aplica `select: false`.
+
+## Corrección: la subida desde el navegador respondía "No se pudo subir la imagen."
+
+- **Causa:** `api/client.ts` (desde la tarea 13) fijaba `Content-Type: application/json` en la instancia de axios. Con ese header, axios 1.x convierte un `FormData` en JSON, así que la subida enviaba `{"image":{}}` sin archivo, el backend respondía 400 `"Image is required"` y el frontend lo mostraba como "No se pudo subir la imagen.". No dependía del cambio D19. Los tests no lo veían porque simulan `productsApi`, y los e2e del backend suben con supertest.
+- **Hecho:** la instancia ya no fija `Content-Type`. Axios pone `application/json` en los cuerpos que son objetos y deja que el navegador ponga `multipart/form-data` con su `boundary`, como pide la spec 03 §13.3.
+- **Archivos:** `frontend/src/api/client.ts`, `frontend/src/api/productsApi.test.ts` (nuevo: comprueba, con el adaptador de axios, que la subida sale como `FormData` con el archivo y que los cuerpos JSON siguen saliendo como `application/json`; falla con el código anterior).
+- **Verificación:** frontend `npm test` 103/103 ✅ · lint ✅ · build ✅.
+
+## Cambio posterior: imágenes que rotan en el catálogo y sin "Hacer principal"
+
+- **Hecho:**
+  - **`ProductCard`:** con más de una imagen las rota cada 3 segundos con un fundido y muestra puntos de posición. Se pausa con el puntero o el foco encima y no rota con `prefers-reduced-motion`. Solo la imagen visible tiene `alt`. La lógica está en el hook `useRotatingIndex`.
+  - **`ProductImagesDialog`:** se quita "Hacer principal". La etiqueta "Principal" sigue en la primera imagen. El thunk `reorderImages`, `productsApi.reorderImages` y el endpoint `PUT /images/order` se conservan (contrato sin cambios), aunque la interfaz ya no los usa.
+  - **Spec 03:** §6.3, §13.4, §13.5, §17, §18 (nota en la tarea 17) y §19.
+- **Archivos:** `features/catalog/useRotatingIndex.ts` (nuevo), `features/catalog/components/ProductCard.tsx`, `features/catalog/components/ProductCard.test.tsx` (nuevo), `features/seller/components/ProductImagesDialog.tsx` (+ test).
+- **Verificación:** frontend `npm test` 107/107 ✅ · lint ✅ · build ✅. El backend no cambia.
+
+## Cambio posterior: el vendedor no ve el catálogo
+
+- **Hecho:** `/catalog` y `/catalog/:id` quedan dentro de `ProtectedRoute roles={['buyer']}`. Un vendedor que entra ahí vuelve a su inicio, `/seller/products`, con "No tienes acceso a esa sección." (el mismo mecanismo que ya llevaba al comprador fuera de `/seller/products`). La barra superior del vendedor solo muestra "Mis productos". Su pantalla de inicio ya era "Mis productos" (`HOME_PATHS`), también después del login.
+- **Alcance:** solo el frontend. La API del catálogo sigue aceptando a cualquier usuario autenticado (contrato sin cambios), porque solo expone datos públicos; restringirla con `@Roles('buyer')` sería un cambio incompatible del contrato.
+- **Documentos:** spec 03 §4 (nota en la tabla de permisos), §13.1 y §17; README del frontend.
+- **Archivos:** `app/routes.tsx`, `components/AppLayout.tsx`, `app/routes.test.tsx` (vendedor en `/catalog` y en el detalle → `/seller/products` con aviso; enlaces de la barra por rol).
+- **Verificación:** frontend `npm test` 108/108 ✅ · lint ✅ · build ✅.

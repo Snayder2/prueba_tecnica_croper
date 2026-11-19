@@ -3,7 +3,7 @@ import { formatFileSize } from './formatters';
 /** Same limits as the backend (contract §4.5). */
 export const MAX_IMAGE_BYTES = 1_048_576; // 1 MB
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
-export const MAX_PRODUCT_IMAGES = 5;
+export const MAX_PRODUCT_IMAGES = 4;
 /** `accept` of the file input. */
 export const IMAGE_ACCEPT = ALLOWED_IMAGE_TYPES.join(',');
 

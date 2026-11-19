@@ -13,7 +13,6 @@ async function bootstrap() {
 
   configureApp(app, {
     corsOrigin: config.get('CORS_ORIGIN', { infer: true }),
-    uploadsDir: config.get('UPLOADS_DIR', { infer: true }),
   });
   setupSwagger(app);
   app.enableShutdownHooks();

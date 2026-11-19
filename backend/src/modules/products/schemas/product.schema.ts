@@ -1,9 +1,9 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 import { User } from '../../users/schemas/user.schema.js';
-import { ProductImage, ProductImageRecord, ProductImageSchema } from './product-image.schema.js';
+import { ProductImage, ProductImageMeta, ProductImageSchema } from './product-image.schema.js';
 
-export const MAX_PRODUCT_IMAGES = 5;
+export const MAX_PRODUCT_IMAGES = 4;
 export const MAX_DISCOUNT_PERCENT = 90;
 
 @Schema({ collection: 'products', timestamps: true, versionKey: false })
@@ -60,11 +60,21 @@ export class Product {
 
 export type ProductDocument = HydratedDocument<Product>;
 
-/** Plain product object as stored in MongoDB. */
+/**
+ * Plain product object as read by every product query: the images come
+ * without their base64 data (WITHOUT_IMAGE_DATA).
+ */
 export type ProductRecord = Omit<Product, 'images'> & {
   _id: Types.ObjectId;
-  images: ProductImageRecord[];
+  images: ProductImageMeta[];
 };
+
+/**
+ * Projection for every product query (lists, detail and writes that return the
+ * product): the base64 of the images can weigh several MB and is only read by
+ * the public image endpoint. The schema also marks both fields `select: false`.
+ */
+export const WITHOUT_IMAGE_DATA = { 'images.data': 0, 'images.thumbData': 0 } as const;
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
 
