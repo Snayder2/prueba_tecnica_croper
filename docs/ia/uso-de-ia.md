@@ -25,23 +25,13 @@ El mismo esquema se repitió para el frontend ([spec 02](../specs/02-frontend.md
 
 ## 3. Prompts más relevantes
 
-### 3.1 Preparación del entorno
-
-> "Debo hacer este ejercicio pero no tengo Mongo instalado, ¿cómo lo instalo y qué puedo usar para conectarme?" (con el enunciado del Ejercicio 1)
-
-Resultado: tres opciones (Atlas, Docker, instalación nativa). Docker no estaba instalado en Windows, así que se eligió **MongoDB Community Server** local, con Compass como cliente.
-
-> "¿No debería tener una cuenta al menos, como sería el `sa` en SQL Server?"
-
-Resultado: aclaró que la cuenta que pedía el instalador es la cuenta de Windows con la que corre el servicio, no un usuario de la base de datos, y que MongoDB local arranca sin autenticación. Se decidió usar **Network Service** y dejar la autenticación de MongoDB como mejora para producción (ver ejercicio 5).
-
-### 3.2 Elección del enfoque
+### 3.1 Elección del enfoque
 
 > "¿Es buena idea hacer esta prueba técnica con specs o solo con prompts normales en .md?"
 
 Resultado: se eligió un enfoque de specs ligeras (un archivo por ejercicio) en lugar de un framework completo de specs, para no agregar ceremonia innecesaria a una prueba de este tamaño.
 
-### 3.3 Redacción de la spec del backend
+### 3.2 Redacción de la spec del backend
 
 > "Ayúdame a ir haciendo el .md del backend, mejor uno por uno."
 
@@ -51,7 +41,7 @@ Resultado: primera versión de `docs/specs/01-backend.md`.
 
 Resultado: se amplió la sección de Swagger con tags, DTOs de respuesta, documentación de errores, persistencia del token y exportación de `docs/openapi.json`, y se agregaron criterios de aceptación específicos.
 
-### 3.4 Implementación
+### 3.3 Implementación
 
 Los prompts largos se escribieron en un archivo (`instructivo.md`) y se le pidió a Claude Code que lo siguiera. Así el prompt se puede revisar y corregir antes de ejecutarlo.
 
@@ -75,7 +65,7 @@ En el frontend se agregó que la IA explicara antes qué iba a tocar y cerrara c
 
 **Documentación.** Para el README de la raíz el prompt pedía que todo comando, puerto, URL y usuario saliera de los archivos del repo, verificar cada enlace y reportar las inconsistencias en lugar de corregir otros archivos por su cuenta.
 
-### 3.5 Cambios pedidos después de revisar la implementación
+### 3.4 Cambios pedidos después de revisar la implementación
 
 Después de probar la app se pidieron cambios que no estaban en la spec original. Cada uno quedó en el registro de implementación:
 - Guardar las imágenes en base64 dentro de MongoDB en lugar de en disco, con un máximo de 4 por producto (D19).
