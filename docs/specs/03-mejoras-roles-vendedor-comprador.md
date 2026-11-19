@@ -638,7 +638,7 @@ Como no hay datos viejos, los campos nuevos pueden ser obligatorios desde el pri
 **Datos de prueba (`npm run seed`)**. Antes de insertar, limpia las colecciones `users` y `products` (las imágenes viven dentro de los productos), así que se puede ejecutar varias veces y siempre deja el mismo estado.
 - 2 vendedores, 1 comprador (credenciales en el README).
 - 30 productos repartidos en varias categorías, algunos con descuento, algunos agotados y algunos ocultos.
-- Imágenes de ejemplo propias o de libre uso en `backend/seed/images/`, procesadas con el mismo servicio de imágenes de la app y guardadas en base64 dentro de cada producto. Nunca más de 4 por producto.
+- Imágenes de ejemplo propias o de libre uso, incluidas en base64 dentro de cada producto de `backend/seed/products.json` (`mimeType`, `data`, `thumbData`, `width`, `height`), ya procesadas a WebP con el mismo servicio de imágenes de la app. El seed solo agrega `_id`, `url` y `thumbUrl` y las guarda dentro de cada producto. Nunca más de 4 por producto.
 - El script vive en `src/scripts/seed.ts` (no en `backend/scripts/`): necesita los servicios de Nest, que usan decoradores, y solo `src/` se compila. Se ejecuta con `nest build && node dist/scripts/seed.js`, igual que `docs:export`.
 
 ## 15. Configuración
@@ -659,7 +659,7 @@ VITE_API_URL=http://localhost:3000/api/v1
 
 ```
 backend/
-├── seed/images/
+├── seed/products.json            # productos con sus imágenes en base64
 └── src/
     ├── scripts/
     │   └── seed.ts                   # junto a export-openapi.ts (ver sección 14)

@@ -15,7 +15,7 @@ export function AuthCard({ title, subtitle, children, footer }: AuthCardProps) {
       <div className="w-full max-w-md">
         <div className="mb-6 flex items-center justify-center gap-3">
           <LeafLogo className="size-10" />
-          <span className="text-lg font-semibold text-navy-500">Gestión de productos</span>
+          <span className="text-lg font-semibold text-navy-500">Mercado agro</span>
         </div>
         <div className="rounded-xl border border-navy-100 bg-white p-6 shadow-sm sm:p-8">
           <h1 className="text-2xl font-semibold text-navy-500">{title}</h1>

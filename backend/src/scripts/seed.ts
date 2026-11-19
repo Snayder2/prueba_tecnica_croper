@@ -4,9 +4,10 @@
  * 1. Empties the users and products collections and syncs their indexes
  *    (this also drops the old global unique index of sku from version 1.0).
  * 2. Creates 2 sellers and 1 buyer, and 30 products from seed/products.json,
- *    some with discount, some out of stock and some hidden. The images in
- *    seed/images go through the same ImageProcessingService as the app and
- *    are stored in base64 inside each product (at most 4 per product).
+ *    some with discount, some out of stock and some hidden. Each product of
+ *    the JSON already carries its images in base64 (WebP generated with the
+ *    app's ImageProcessingService), so the seed needs no image files; they are
+ *    stored inside each product (at most 4 per product).
  */
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -19,10 +20,6 @@ import { join, resolve } from 'node:path';
 import { AppModule } from '../app.module.js';
 import { EnvironmentVariables } from '../config/env.validation.js';
 import { BCRYPT_ROUNDS } from '../modules/auth/auth.service.js';
-import {
-  ImageProcessingService,
-  PROCESSED_IMAGE_MIME,
-} from '../modules/images/image-processing.service.js';
 import { productImageUrls } from '../modules/products/image-urls.js';
 import { calculateFinalPrice } from '../modules/products/pricing.js';
 import type { ProductImageRecord } from '../modules/products/schemas/product-image.schema.js';
@@ -50,9 +47,8 @@ const DISCOUNTS: Record<string, number> = {
   'FER-DAP-50': 12,
 };
 
-/** Products with a second image; products without category or packaging get none. */
-const WITH_DETAIL_IMAGE = new Set(['FER-NPK-50', 'SEM-MAIZ-20', 'HER-FUMI-20', 'CAF-HUI-500']);
-const WITHOUT_IMAGES = new Set(['EMP-FIQUE-70', 'HER-CANA-01', 'SEM-FRI-5']);
+/** Image of products.json: the stored fields; the seed adds the id and the URLs. */
+type SeedImage = Pick<ProductImageRecord, 'mimeType' | 'data' | 'thumbData' | 'width' | 'height'>;
 
 interface SeedProduct {
   name: string;
@@ -63,15 +59,8 @@ interface SeedProduct {
   sku: string;
   isActive: boolean;
   createdAt: { $date: string };
+  images?: SeedImage[];
 }
-
-/** "Nutrición animal" → "nutricion-animal" (file name in seed/images). */
-const slug = (text: string) =>
-  text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/\s+/g, '-');
 
 const logger = new Logger('Seed');
 // Quiet while Nest starts; the seed summary is printed afterwards.
@@ -81,7 +70,6 @@ Logger.overrideLogger(['log', 'error', 'warn']);
 try {
   const userModel = app.get<Model<User>>(getModelToken(User.name));
   const productModel = app.get<Model<Product>>(getModelToken(Product.name));
-  const imageProcessing = app.get(ImageProcessingService);
   const publicBaseUrl = app
     .get<ConfigService<EnvironmentVariables, true>>(ConfigService)
     .get('PUBLIC_BASE_URL', { infer: true });
@@ -95,32 +83,16 @@ try {
   const users = await userModel.insertMany(USERS.map((user) => ({ ...user, password })));
   const sellers = users.filter((user) => user.role === 'seller');
 
-  // Each source image is processed once; every product gets its own copy of
-  // the base64 inside its document.
-  type EncodedImage = Pick<ProductImageRecord, 'data' | 'thumbData' | 'width' | 'height'>;
-  const encodedCache = new Map<string, Promise<EncodedImage>>();
-  const encodeSource = (name: string) => {
-    if (!encodedCache.has(name)) {
-      encodedCache.set(
-        name,
-        readFile(join(SEED_DIR, 'images', `${name}.jpg`))
-          .then((buffer) => imageProcessing.process(buffer))
-          .then((processed) => ({
-            data: processed.large.toString('base64'),
-            thumbData: processed.thumbnail.toString('base64'),
-            width: processed.width,
-            height: processed.height,
-          })),
-      );
-    }
-    return encodedCache.get(name) as Promise<EncodedImage>;
-  };
-  const buildImage = async (productId: Types.ObjectId, name: string): Promise<ProductImageRecord> => {
+  // The URLs include the product and image ids, so they are built here.
+  const buildImage = (productId: Types.ObjectId, image: SeedImage): ProductImageRecord => {
     const imageId = new Types.ObjectId();
     return {
       _id: imageId,
-      mimeType: PROCESSED_IMAGE_MIME,
-      ...(await encodeSource(name)),
+      mimeType: image.mimeType,
+      data: image.data,
+      thumbData: image.thumbData,
+      width: image.width,
+      height: image.height,
       ...productImageUrls(publicBaseUrl, productId.toString(), imageId.toString()),
     };
   };
@@ -133,12 +105,7 @@ try {
   const products = [];
   for (const [index, item] of seedProducts.entries()) {
     const discountPercent = DISCOUNTS[item.sku] ?? 0;
-    const sources =
-      WITHOUT_IMAGES.has(item.sku) || !item.category
-        ? []
-        : [slug(item.category), ...(WITH_DETAIL_IMAGE.has(item.sku) ? ['detalle'] : [])];
     const createdAt = new Date(item.createdAt.$date);
-    // The image URLs include the product id, so it is generated here.
     const productId = new Types.ObjectId();
 
     products.push({
@@ -153,9 +120,9 @@ try {
       category: item.category,
       sku: item.sku,
       isActive: item.isActive,
-      images: await Promise.all(
-        sources.slice(0, MAX_PRODUCT_IMAGES).map((name) => buildImage(productId, name)),
-      ),
+      images: (item.images ?? [])
+        .slice(0, MAX_PRODUCT_IMAGES)
+        .map((image) => buildImage(productId, image)),
       createdAt,
       updatedAt: createdAt,
     });

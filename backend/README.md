@@ -70,7 +70,7 @@ npm run seed
 
 `npm run seed` vacía las colecciones `users` y `products` (y recrea sus índices, así desaparece el índice único global de `sku` de la 1.0.0) y crea:
 
-- 30 productos de `seed/products.json` repartidos entre los dos vendedores: 8 con descuento, 3 agotados y 3 ocultos. Las imágenes de `seed/images/` (propias) se procesan con el mismo servicio de la app.
+- 30 productos de `seed/products.json` repartidos entre los dos vendedores: 8 con descuento, 3 agotados y 3 ocultos. Cada producto del JSON trae sus imágenes (propias) en base64, ya procesadas a WebP con el mismo servicio de la app, así que el seed funciona con solo clonar el repo.
 - Estos usuarios, todos con la contraseña `Clave1234`:
 
 | Rol | Email |
@@ -190,7 +190,7 @@ src/
 │   ├── products/           # schemas, DTOs, servicio, CatalogController, ProductImagesController, SellerProductsController, pricing
 │   └── images/             # multer.config, ImageFilePipe, ImageProcessingService (sharp)
 └── scripts/                # export-openapi.ts y seed.ts
-seed/                       # products.json e imágenes de ejemplo
+seed/                       # products.json (productos con sus imágenes en base64)
 test/app.e2e-spec.ts        # criterios de aceptación de las specs 01 §11 y 03 §17
 ```
 

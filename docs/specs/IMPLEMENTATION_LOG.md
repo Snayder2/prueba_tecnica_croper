@@ -647,3 +647,10 @@ Las tareas 8, 9 y 10 y la verificación de la fase 2 describen el almacenamiento
 - **Documentos:** spec 03 §4 (nota en la tabla de permisos), §13.1 y §17; README del frontend.
 - **Archivos:** `app/routes.tsx`, `components/AppLayout.tsx`, `app/routes.test.tsx` (vendedor en `/catalog` y en el detalle → `/seller/products` con aviso; enlaces de la barra por rol).
 - **Verificación:** frontend `npm test` 108/108 ✅ · lint ✅ · build ✅.
+
+## Cambio posterior: imágenes del seed dentro de `products.json`
+
+- **Hecho:** cada producto de `seed/products.json` trae un arreglo `images` con los campos que se guardan en MongoDB (`mimeType`, `data`, `thumbData`, `width`, `height`), en base64 y ya procesados a WebP con `ImageProcessingService`. Son 31 imágenes con las mismas reglas de antes: una por categoría, una de "detalle" en 4 productos y ninguna en los 3 sin empaque. El seed solo agrega `_id`, `url` y `thumbUrl`, porque dependen de los ids que genera. Se borró `seed/images/`.
+- **Por qué:** que el JSON sea la única fuente de los datos de prueba, para que quien clone el proyecto cargue productos con imágenes sin depender de archivos aparte. El seed ya no usa sharp. `products.json` pasa de 12 KB a unos 390 KB.
+- **Documentos:** spec 03 §14 y §16; README del backend.
+- **Archivos:** `src/scripts/seed.ts`, `seed/products.json`, `seed/images/*.jpg` (borrados).
