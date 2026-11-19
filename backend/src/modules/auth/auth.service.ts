@@ -33,7 +33,12 @@ export class AuthService {
   async register(dto: RegisterDto): Promise<PublicUser> {
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
     try {
-      return await this.usersService.create({ email: dto.email, name: dto.name, passwordHash });
+      return await this.usersService.create({
+        email: dto.email,
+        name: dto.name,
+        role: dto.role,
+        passwordHash,
+      });
     } catch (error) {
       if (isDuplicateKeyError(error)) {
         throw new ConflictException('Email already registered');
@@ -51,7 +56,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const payload: JwtPayload = { sub: user._id.toString(), email: user.email };
+    const payload: JwtPayload = { sub: user._id.toString(), email: user.email, role: user.role };
     return {
       accessToken: await this.jwtService.signAsync(payload),
       tokenType: 'Bearer',

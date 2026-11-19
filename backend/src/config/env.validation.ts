@@ -46,6 +46,20 @@ export class EnvironmentVariables {
     { message: 'CORS_ORIGIN must be a URL such as http://localhost:5173' },
   )
   CORS_ORIGIN: string;
+
+  // Base of the absolute image URLs returned by the API (spec 03 §7.4).
+  @IsDefined(REQUIRED)
+  @IsUrl(
+    { require_tld: false, require_protocol: true },
+    { message: 'PUBLIC_BASE_URL must be a URL such as http://localhost:3000' },
+  )
+  PUBLIC_BASE_URL: string;
+
+  // Folder for uploaded product images (relative to the backend folder or absolute).
+  @IsDefined(REQUIRED)
+  @IsString()
+  @IsNotEmpty(REQUIRED)
+  UPLOADS_DIR: string;
 }
 
 /**

@@ -159,6 +159,10 @@ vite.config.ts.timestamp-*
 # Build output
 build/
 
+# Uploaded product images (UPLOADS_DIR) and the e2e copy
+uploads/
+uploads-e2e/
+
 # OS files
 .DS_Store
 Thumbs.db

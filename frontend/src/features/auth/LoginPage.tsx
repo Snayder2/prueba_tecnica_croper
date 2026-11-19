@@ -8,7 +8,7 @@ import { FormField } from '../../components/FormField';
 import type { LoginRequest } from '../../types/auth';
 import { isAppError, MESSAGES } from '../../utils/errorMessages';
 import { AuthCard, FormAlert } from './AuthCard';
-import { clearAuthError, login } from './authSlice';
+import { clearAuthError, HOME_PATHS, login } from './authSlice';
 import { emailRules, passwordRules } from './authValidation';
 
 export function LoginPage() {
@@ -34,9 +34,12 @@ export function LoginPage() {
   const onSubmit = async (values: LoginRequest) => {
     setFormError(null);
     try {
-      await dispatch(login({ email: values.email.trim(), password: values.password })).unwrap();
-      const from = (location.state as { from?: string } | null)?.from ?? '/products';
-      void navigate(from, { replace: true });
+      const { user } = await dispatch(
+        login({ email: values.email.trim(), password: values.password }),
+      ).unwrap();
+      // Back to the page that asked for the login, or to the start screen of the role.
+      const from = (location.state as { from?: string } | null)?.from;
+      void navigate(from ?? HOME_PATHS[user.role], { replace: true });
     } catch (error) {
       if (!isAppError(error)) return setFormError(MESSAGES.unexpected);
       const fields = Object.entries(error.fieldErrors).filter(([field]) => field === 'email' || field === 'password');

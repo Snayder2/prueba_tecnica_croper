@@ -51,3 +51,17 @@ export function priceToInput(value: number): string {
 export function formatDate(iso: string): string {
   return dateFormatter.format(new Date(iso));
 }
+
+const fileSizeFormatter = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 });
+
+/** 15 → "15 %", as written in spec 03 §13.4. Built by hand: ICU data differs between browsers. */
+export function formatPercent(percent: number): string {
+  return `${integerFormatter.format(percent)} %`;
+}
+
+/** 2_411_724 → "2,3 MB"; 900_000 → "878,9 KB" (base 1024, like the 1 MB limit). */
+export function formatFileSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${fileSizeFormatter.format(bytes / (1024 * 1024))} MB`;
+  if (bytes >= 1024) return `${fileSizeFormatter.format(bytes / 1024)} KB`;
+  return `${bytes} B`;
+}

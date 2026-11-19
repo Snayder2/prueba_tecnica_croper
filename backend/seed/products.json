@@ -7,8 +7,12 @@
     "category": "Fertilizantes",
     "sku": "FER-NPK-50",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-01T13:00:00.000Z" },
-    "updatedAt": { "$date": "2026-11-01T13:00:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-01T13:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-01T13:00:00.000Z"
+    }
   },
   {
     "name": "Urea granulada 46% 50 kg",
@@ -18,8 +22,12 @@
     "category": "Fertilizantes",
     "sku": "FER-UREA-50",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-01T13:05:00.000Z" },
-    "updatedAt": { "$date": "2026-11-01T13:05:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-01T13:05:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-01T13:05:00.000Z"
+    }
   },
   {
     "name": "Fertilizante para café 17-6-18-2 50 kg",
@@ -29,8 +37,12 @@
     "category": "Fertilizantes",
     "sku": "FER-CAFE-50",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-01T13:10:00.000Z" },
-    "updatedAt": { "$date": "2026-11-01T13:10:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-01T13:10:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-01T13:10:00.000Z"
+    }
   },
   {
     "name": "Cal dolomita 50 kg",
@@ -40,8 +52,12 @@
     "category": "Enmiendas",
     "sku": "ENM-DOLO-50",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-02T14:00:00.000Z" },
-    "updatedAt": { "$date": "2026-11-02T14:00:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-02T14:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-02T14:00:00.000Z"
+    }
   },
   {
     "name": "Abono orgánico compostado 40 kg",
@@ -51,8 +67,12 @@
     "category": "Abonos orgánicos",
     "sku": "ABO-COMP-40",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-02T14:10:00.000Z" },
-    "updatedAt": { "$date": "2026-11-02T14:10:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-02T14:10:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-02T14:10:00.000Z"
+    }
   },
   {
     "name": "Semilla de maíz amarillo híbrido 20 kg",
@@ -62,8 +82,12 @@
     "category": "Semillas",
     "sku": "SEM-MAIZ-20",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-03T15:00:00.000Z" },
-    "updatedAt": { "$date": "2026-11-03T15:00:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-03T15:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-03T15:00:00.000Z"
+    }
   },
   {
     "name": "Semilla de arroz certificada 40 kg",
@@ -73,8 +97,12 @@
     "category": "Semillas",
     "sku": "SEM-ARROZ-40",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-03T15:10:00.000Z" },
-    "updatedAt": { "$date": "2026-11-03T15:10:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-03T15:10:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-03T15:10:00.000Z"
+    }
   },
   {
     "name": "Semilla de tomate chonto x 1.000",
@@ -84,8 +112,12 @@
     "category": "Semillas",
     "sku": "SEM-TOM-1000",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-03T15:20:00.000Z" },
-    "updatedAt": { "$date": "2026-11-03T15:20:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-03T15:20:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-03T15:20:00.000Z"
+    }
   },
   {
     "name": "Herbicida glifosato 1 L",
@@ -95,8 +127,12 @@
     "category": "Agroquímicos",
     "sku": "AGQ-GLIF-1L",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-04T16:00:00.000Z" },
-    "updatedAt": { "$date": "2026-11-04T16:00:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-04T16:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-04T16:00:00.000Z"
+    }
   },
   {
     "name": "Fungicida mancozeb 1 kg",
@@ -106,8 +142,12 @@
     "category": "Agroquímicos",
     "sku": "AGQ-MANC-1K",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-04T16:10:00.000Z" },
-    "updatedAt": { "$date": "2026-11-04T16:10:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-04T16:10:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-04T16:10:00.000Z"
+    }
   },
   {
     "name": "Insecticida biológico Beauveria 500 g",
@@ -117,8 +157,12 @@
     "category": "Agroquímicos",
     "sku": "AGQ-BEAU-500",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-04T16:20:00.000Z" },
-    "updatedAt": { "$date": "2026-11-10T09:00:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-04T16:20:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-10T09:00:00.000Z"
+    }
   },
   {
     "name": "Concentrado para ganado de leche 40 kg",
@@ -128,8 +172,12 @@
     "category": "Nutrición animal",
     "sku": "NUT-LECHE-40",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-05T13:00:00.000Z" },
-    "updatedAt": { "$date": "2026-11-05T13:00:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-05T13:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-05T13:00:00.000Z"
+    }
   },
   {
     "name": "Sal mineralizada 8% fósforo 40 kg",
@@ -139,8 +187,12 @@
     "category": "Nutrición animal",
     "sku": "NUT-SALM-40",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-05T13:10:00.000Z" },
-    "updatedAt": { "$date": "2026-11-05T13:10:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-05T13:10:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-05T13:10:00.000Z"
+    }
   },
   {
     "name": "Concentrado para pollo de engorde 40 kg",
@@ -150,8 +202,12 @@
     "category": "Nutrición animal",
     "sku": "NUT-POLLO-40",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-05T13:20:00.000Z" },
-    "updatedAt": { "$date": "2026-11-05T13:20:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-05T13:20:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-05T13:20:00.000Z"
+    }
   },
   {
     "name": "Vacuna contra la aftosa 50 dosis",
@@ -161,8 +217,12 @@
     "category": "Salud animal",
     "sku": "SAL-AFTO-50",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-06T14:00:00.000Z" },
-    "updatedAt": { "$date": "2026-11-06T14:00:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-06T14:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-06T14:00:00.000Z"
+    }
   },
   {
     "name": "Ivermectina 1% 500 mL",
@@ -172,8 +232,12 @@
     "category": "Salud animal",
     "sku": "SAL-IVER-500",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-06T14:10:00.000Z" },
-    "updatedAt": { "$date": "2026-11-06T14:10:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-06T14:10:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-06T14:10:00.000Z"
+    }
   },
   {
     "name": "Fumigadora de espalda 20 L",
@@ -183,8 +247,12 @@
     "category": "Herramientas",
     "sku": "HER-FUMI-20",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-07T15:00:00.000Z" },
-    "updatedAt": { "$date": "2026-11-07T15:00:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-07T15:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-07T15:00:00.000Z"
+    }
   },
   {
     "name": "Machete 22 pulgadas",
@@ -194,8 +262,12 @@
     "category": "Herramientas",
     "sku": "HER-MACH-22",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-07T15:10:00.000Z" },
-    "updatedAt": { "$date": "2026-11-07T15:10:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-07T15:10:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-07T15:10:00.000Z"
+    }
   },
   {
     "name": "Manguera de riego 1/2 pulgada x 100 m",
@@ -205,8 +277,12 @@
     "category": "Riego",
     "sku": "RIE-MANG-100",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-08T16:00:00.000Z" },
-    "updatedAt": { "$date": "2026-11-08T16:00:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-08T16:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-08T16:00:00.000Z"
+    }
   },
   {
     "name": "Polisombra negra 65% x 100 m",
@@ -216,8 +292,12 @@
     "category": "Riego",
     "sku": "RIE-POLI-100",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-08T16:10:00.000Z" },
-    "updatedAt": { "$date": "2026-11-08T16:10:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-08T16:10:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-08T16:10:00.000Z"
+    }
   },
   {
     "name": "Alambre de púas calibre 12.5 x 400 m",
@@ -227,8 +307,12 @@
     "category": "Cercas",
     "sku": "CER-ALAM-400",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-09T13:00:00.000Z" },
-    "updatedAt": { "$date": "2026-11-09T13:00:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-09T13:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-09T13:00:00.000Z"
+    }
   },
   {
     "name": "Costal de fique para café 70 kg",
@@ -238,8 +322,12 @@
     "category": "Empaques",
     "sku": "EMP-FIQUE-70",
     "isActive": true,
-    "createdAt": { "$date": "2026-11-09T13:10:00.000Z" },
-    "updatedAt": { "$date": "2026-11-09T13:10:00.000Z" }
+    "createdAt": {
+      "$date": "2026-11-09T13:10:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-09T13:10:00.000Z"
+    }
   },
   {
     "name": "Fertilizante DAP 18-46-0 50 kg",
@@ -249,8 +337,12 @@
     "category": "Fertilizantes",
     "sku": "FER-DAP-50",
     "isActive": false,
-    "createdAt": { "$date": "2026-10-20T13:00:00.000Z" },
-    "updatedAt": { "$date": "2026-11-12T10:00:00.000Z" }
+    "createdAt": {
+      "$date": "2026-10-20T13:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-12T10:00:00.000Z"
+    }
   },
   {
     "name": "Canasto recolector de café",
@@ -259,7 +351,101 @@
     "stock": 65,
     "sku": "HER-CANA-01",
     "isActive": false,
-    "createdAt": { "$date": "2026-10-25T13:00:00.000Z" },
-    "updatedAt": { "$date": "2026-11-12T10:10:00.000Z" }
+    "createdAt": {
+      "$date": "2026-10-25T13:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-12T10:10:00.000Z"
+    }
+  },
+  {
+    "name": "Café de origen Huila 500 g",
+    "description": "Café especial de tueste medio, cultivado en el Huila por pequeños productores.",
+    "price": 32000,
+    "stock": 120,
+    "category": "Café",
+    "sku": "CAF-HUI-500",
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-11-12T15:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-12T15:00:00.000Z"
+    }
+  },
+  {
+    "name": "Café tostado Nariño 250 g",
+    "description": "Café de altura con notas cítricas, molido para filtro.",
+    "price": 18500,
+    "stock": 4,
+    "category": "Café",
+    "sku": "CAF-NAR-250",
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-11-13T15:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-13T15:00:00.000Z"
+    }
+  },
+  {
+    "name": "Semilla de fríjol cargamanto 5 kg",
+    "description": "Semilla seleccionada de fríjol cargamanto rojo para clima frío.",
+    "price": 84000,
+    "stock": 0,
+    "category": "Semillas",
+    "sku": "SEM-FRI-5",
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-11-14T15:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-14T15:00:00.000Z"
+    }
+  },
+  {
+    "name": "Kit de análisis de suelo",
+    "description": "Kit para medir pH, nitrógeno, fósforo y potasio en campo.",
+    "price": 115000,
+    "stock": 9,
+    "category": "Herramientas",
+    "sku": "HER-SUELO-01",
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-11-15T15:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-15T15:00:00.000Z"
+    }
+  },
+  {
+    "name": "Aspersor de impacto 1/2 pulgada",
+    "description": "Aspersor metálico con alcance de hasta 12 m para potreros y huertas.",
+    "price": 23900,
+    "stock": 3,
+    "category": "Riego",
+    "sku": "RIE-ASP-12",
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-11-16T15:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-16T15:00:00.000Z"
+    }
+  },
+  {
+    "name": "Tijera podadora profesional",
+    "description": "Tijera de poda con hoja de acero para frutales y café.",
+    "price": 68000,
+    "stock": 14,
+    "category": "Herramientas",
+    "sku": "HER-TIJ-01",
+    "isActive": false,
+    "createdAt": {
+      "$date": "2026-11-17T15:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-11-17T15:00:00.000Z"
+    }
   }
 ]

@@ -1,18 +1,22 @@
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { Button } from '../../components/Button';
 import { FOCUS_RING, fieldAria, inputClassName } from '../../components/styles';
 import { FormField } from '../../components/FormField';
-import type { RegisterRequest } from '../../types/auth';
+import type { RegisterRequest, UserRole } from '../../types/auth';
 import { isAppError, MESSAGES } from '../../utils/errorMessages';
 import { showNotification } from '../ui/uiSlice';
 import { AuthCard, FormAlert } from './AuthCard';
-import { clearAuthError, login, register as registerUser } from './authSlice';
+import { clearAuthError, HOME_PATHS, login, register as registerUser } from './authSlice';
 import { emailRules, nameRules, passwordRules } from './authValidation';
+import { RoleSelector } from './RoleSelector';
 
-const FIELDS: (keyof RegisterRequest)[] = ['name', 'email', 'password'];
+const FIELDS: (keyof RegisterRequest)[] = ['name', 'email', 'password', 'role'];
+
+/** The role starts empty on purpose (spec 03 §13.2). */
+type RegisterFormValues = Omit<RegisterRequest, 'role'> & { role: UserRole | '' };
 
 export function RegisterPage() {
   const dispatch = useAppDispatch();
@@ -22,11 +26,12 @@ export function RegisterPage() {
 
   const {
     register,
+    control,
     handleSubmit,
     setError,
     formState: { errors },
-  } = useForm<RegisterRequest>({
-    defaultValues: { name: '', email: '', password: '' },
+  } = useForm<RegisterFormValues>({
+    defaultValues: { name: '', email: '', password: '', role: '' },
     mode: 'onTouched',
   });
 
@@ -36,9 +41,15 @@ export function RegisterPage() {
     };
   }, [dispatch]);
 
-  const onSubmit = async (values: RegisterRequest) => {
+  const onSubmit = async (values: RegisterFormValues) => {
     setFormError(null);
-    const data = { name: values.name.trim(), email: values.email.trim(), password: values.password };
+    if (!values.role) return;
+    const data: RegisterRequest = {
+      name: values.name.trim(),
+      email: values.email.trim(),
+      password: values.password,
+      role: values.role,
+    };
 
     try {
       await dispatch(registerUser(data)).unwrap();
@@ -58,7 +69,7 @@ export function RegisterPage() {
     try {
       await dispatch(login({ email: data.email, password: data.password })).unwrap();
       dispatch(showNotification({ type: 'success', message: `¡Bienvenido, ${data.name}! Tu cuenta fue creada.` }));
-      void navigate('/products', { replace: true });
+      void navigate(HOME_PATHS[data.role], { replace: true });
     } catch {
       dispatch(showNotification({ type: 'success', message: 'Tu cuenta fue creada. Inicia sesión para continuar.' }));
       void navigate('/login', { replace: true });
@@ -68,7 +79,7 @@ export function RegisterPage() {
   return (
     <AuthCard
       title="Crea tu cuenta"
-      subtitle="Regístrate para empezar a gestionar productos."
+      subtitle="Regístrate para comprar o vender productos del agro."
       footer={
         <>
           ¿Ya tienes cuenta?{' '}
@@ -80,6 +91,22 @@ export function RegisterPage() {
     >
       <form className="space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
         <FormAlert message={formError} />
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium text-navy-500">¿Cómo vas a usar la app?</legend>
+          <Controller
+            control={control}
+            name="role"
+            rules={{ required: 'Elige si quieres comprar o vender.' }}
+            render={({ field }) => (
+              <RoleSelector
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                error={errors.role?.message}
+              />
+            )}
+          />
+        </fieldset>
         <FormField id="name" label="Nombre" error={errors.name?.message}>
           <input
             type="text"

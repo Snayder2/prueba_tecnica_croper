@@ -22,6 +22,7 @@ describe('AuthService', () => {
     _id: userId,
     email: 'ana@correo.com',
     name: 'Ana Pérez',
+    role: 'seller' as const,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -44,14 +45,23 @@ describe('AuthService', () => {
   });
 
   describe('register', () => {
-    const dto = { email: 'ana@correo.com', password: 'Clave1234', name: 'Ana Pérez' };
+    const dto = {
+      email: 'ana@correo.com',
+      password: 'Clave1234',
+      name: 'Ana Pérez',
+      role: 'seller' as const,
+    };
 
     it('stores a bcrypt hash (never the plain password) and returns the public user', async () => {
       usersService.create.mockResolvedValue(publicUser);
 
       const result = await service.register(dto);
 
-      const { passwordHash } = usersService.create.mock.calls[0][0] as { passwordHash: string };
+      const { passwordHash, role } = usersService.create.mock.calls[0][0] as {
+        passwordHash: string;
+        role: string;
+      };
+      expect(role).toBe('seller');
       expect(passwordHash).not.toBe(dto.password);
       expect(bcrypt.getRounds(passwordHash)).toBe(BCRYPT_ROUNDS);
       expect(BCRYPT_ROUNDS).toBeGreaterThanOrEqual(10);
@@ -77,17 +87,21 @@ describe('AuthService', () => {
       storedHash = await bcrypt.hash('Clave1234', 4);
     });
 
-    it('returns a signed Bearer token with expiresIn in seconds', async () => {
+    it('returns a signed Bearer token with the role and expiresIn in seconds', async () => {
       usersService.findByEmailWithPassword.mockResolvedValue({ ...publicUser, password: storedHash });
 
       const result = await service.login({ email: 'ana@correo.com', password: 'Clave1234' });
 
       expect(result.tokenType).toBe('Bearer');
       expect(result.expiresIn).toBe(3600);
-      const payload = await jwtService.verifyAsync<{ sub: string; email: string }>(
+      const payload = await jwtService.verifyAsync<{ sub: string; email: string; role: string }>(
         result.accessToken,
       );
-      expect(payload).toMatchObject({ sub: userId.toString(), email: 'ana@correo.com' });
+      expect(payload).toMatchObject({
+        sub: userId.toString(),
+        email: 'ana@correo.com',
+        role: 'seller',
+      });
     });
 
     it('throws a generic 401 when the password is wrong', async () => {

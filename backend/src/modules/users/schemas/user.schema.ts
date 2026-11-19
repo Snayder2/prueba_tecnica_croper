@@ -1,6 +1,9 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 
+export const USER_ROLES = ['seller', 'buyer'] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
 @Schema({ collection: 'users', timestamps: true, versionKey: false })
 export class User {
   @Prop({ type: String, required: true, unique: true, lowercase: true, trim: true })
@@ -12,6 +15,10 @@ export class User {
 
   @Prop({ type: String, required: true, trim: true, minlength: 2, maxlength: 60 })
   name: string;
+
+  // Chosen at registration and immutable afterwards (spec 03 §5.1).
+  @Prop({ type: String, required: true, enum: USER_ROLES, immutable: true })
+  role: UserRole;
 
   createdAt: Date;
   updatedAt: Date;

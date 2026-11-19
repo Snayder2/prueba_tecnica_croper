@@ -11,8 +11,8 @@ export function NotFoundPage() {
         title="Página no encontrada"
         description="La dirección que buscas no existe o fue movida."
         action={
-          <Link to="/products" className={buttonClassName('primary')}>
-            Ir a productos
+          <Link to="/" className={buttonClassName('primary')}>
+            Ir al inicio
           </Link>
         }
       />

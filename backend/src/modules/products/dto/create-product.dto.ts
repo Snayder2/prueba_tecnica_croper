@@ -35,6 +35,7 @@ export class CreateProductDto {
     example: 'Fertilizante compuesto para cultivos de ciclo corto',
   })
   @IsOptional()
+  @Transform(trim)
   @IsString()
   @MaxLength(500)
   description?: string;
@@ -64,6 +65,7 @@ export class CreateProductDto {
     example: 'Fertilizantes',
   })
   @IsOptional()
+  @Transform(trim)
   @IsString()
   @MaxLength(50)
   category?: string;

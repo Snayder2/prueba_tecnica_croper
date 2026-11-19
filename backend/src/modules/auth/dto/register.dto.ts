@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsEmail, IsString, Length, Matches, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsString, Length, Matches, MinLength } from 'class-validator';
+import { USER_ROLES, type UserRole } from '../../users/schemas/user.schema.js';
 
 export const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d).+$/;
 
@@ -29,4 +30,12 @@ export class RegisterDto {
   @IsString()
   @Length(2, 60)
   name: string;
+
+  @ApiProperty({
+    description: 'Rol del usuario. Obligatorio y no se puede cambiar después',
+    enum: USER_ROLES,
+    example: 'seller',
+  })
+  @IsIn(USER_ROLES)
+  role: UserRole;
 }

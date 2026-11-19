@@ -1,8 +1,25 @@
 # Spec 02 – Frontend: Gestión de Productos (React + Redux Toolkit)
 
-> Estado: borrador para revisión
+> Estado: implementada (1.0.0) y ampliada por la [spec 03](03-mejoras-roles-vendedor-comprador.md) (1.1.0)
 > Ejercicio: 2 de la prueba técnica Full Stack
-> Consume la API definida en `docs/specs/01-backend.md`
+> Consume la API definida en [`api-contract.md`](api-contract.md) (fuente única de verdad entre backend y frontend)
+
+## Cambios en la versión 1.1.0
+
+Esta spec describe la versión 1.0.0, que es la respuesta al ejercicio 2. El código actual implementa la **1.1.0** de la spec 03 (§13). Qué cambió respecto de cada sección:
+
+| Sección | En la 1.0.0 (este documento) | En la 1.1.0 |
+|---|---|---|
+| §2 Alcance | Sin roles ni imágenes | Vista del vendedor ampliada (stock, descuento, imágenes, visibilidad) y catálogo para compradores |
+| §4.1–4.2 Estado | `productsSlice` | `sellerProductsSlice` (con los thunks de fila), `catalogSlice` nuevo y `authSlice` con `role`; los filtros del catálogo viven en la URL |
+| §5 Pantallas | `/login`, `/register`, `/products` | Más `/` (redirige por rol), `/catalog`, `/catalog/:id` y `/seller/products` (solo vendedor); `/products` redirige a `/`; registro con selector de rol |
+| §5.2 Tabla | Nombre, SKU, Categoría, Precio, Stock, Acciones | Además miniatura, precio con descuento, etiquetas de stock, interruptor "Visible / Oculto" y menú "⋯" |
+| §6.2 Mensajes | Hasta 409 | Mensajes de 403, 413, 415, imágenes y stock con los textos exactos del contrato §6.2 |
+| §9 Configuración | `VITE_API_URL=…/api/v1` | Sin cambios (el prefijo sigue siendo `/api/v1`) |
+| §10 Estructura | `features/products` | `features/seller`, `features/catalog`, `components/Pagination` y `PriceTag`, `utils/catalogQuery`, `imageValidation` y `pricing` |
+| §11 Criterios | De la 1.0.0 | Se agregan los de la spec 03 §17 |
+
+El detalle de la implementación y de cada decisión está en [`IMPLEMENTATION_LOG.md`](IMPLEMENTATION_LOG.md).
 
 ## 1. Objetivo
 
@@ -262,7 +279,7 @@ frontend/
 
 ## 12. Tareas de implementación
 
-1. Crear el proyecto con Vite (React + TypeScript), instalar dependencias y configurar ESLint y `.env`.
+1. Crear el proyecto con Vite (React + TypeScript), instalar dependencias y configurar oxlint y `.env`.
 2. Configurar Tailwind con el tema de la sección 14, el store (`store.ts`, `hooks.ts`) y React Router.
 3. Crear `types/` y el cliente HTTP con interceptores.
 4. `authSlice`, `LoginPage`, `RegisterPage` y `ProtectedRoute`.

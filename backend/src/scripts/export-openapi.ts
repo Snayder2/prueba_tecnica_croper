@@ -3,6 +3,7 @@
  * Preview mode builds the module graph without instantiating providers,
  * so no MongoDB connection is needed.
  */
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -19,5 +20,7 @@ const document = createSwaggerDocument(app);
 mkdirSync(dirname(OUTPUT), { recursive: true });
 writeFileSync(OUTPUT, `${JSON.stringify(document, null, 2)}\n`, 'utf8');
 
-console.log(`OpenAPI spec written to ${OUTPUT}`);
+// The app logger only shows errors here, so this message bypasses its level filter.
+Logger.overrideLogger(['log', 'error']);
+new Logger('docs:export').log(`OpenAPI spec written to ${OUTPUT}`);
 await app.close();

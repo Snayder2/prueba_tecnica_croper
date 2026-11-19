@@ -11,7 +11,23 @@ export const MESSAGES = {
   tooManyRequests: 'Demasiados intentos. Espera un minuto e inténtalo de nuevo.',
   invalidData: 'Revisa los datos del formulario.',
   unexpected: 'Ocurrió un error inesperado. Inténtalo más tarde.',
+  // Contract 1.1.0 §6.2
+  forbidden: 'No tienes acceso a esa sección.',
+  insufficientStock: 'No hay suficiente stock para esa salida.',
+  imageLimit: 'Este producto ya tiene 5 imágenes.',
+  imageTooLarge: 'La imagen pesa más de 1 MB.',
+  unsupportedImage: 'Formato no permitido. Usa JPG, PNG o WebP.',
+  imageUploadFailed: 'No se pudo subir la imagen.',
+  imageDimensions: 'La imagen tiene demasiados píxeles. El máximo es 40 megapíxeles.',
+  imagesChanged: 'Las imágenes cambiaron. Vuelve a intentarlo.',
+  imageNotFound: 'La imagen ya no existe.',
+  productUnavailable: 'Este producto ya no está disponible',
 } as const;
+
+// Requests are told apart by their route, never by the message text (contract §6.2).
+const IMAGE_UPLOAD_URL = /\/images$/;
+const IMAGE_ORDER_URL = /\/images\/order$/;
+const STOCK_URL = /\/stock-adjustments$/;
 
 /** Minimal shape of an Axios error, so this module does not depend on axios. */
 export interface HttpErrorLike {
@@ -89,23 +105,46 @@ export function toAppError(error: unknown): AppError {
   const isLogin = url.includes('/auth/login');
   const isRegister = url.includes('/auth/register');
   const { status } = response;
+  const body = isApiError(response.data) ? response.data : null;
+  const messages = body ? (Array.isArray(body.message) ? body.message : [body.message]) : [];
 
   switch (status) {
     case 400: {
-      const body = isApiError(response.data) ? response.data : null;
-      const messages = body ? (Array.isArray(body.message) ? body.message : [body.message]) : [];
       if (messages.includes('Invalid id')) return appError(400, MESSAGES.invalidProduct);
+      if (IMAGE_UPLOAD_URL.test(url)) {
+        return appError(
+          400,
+          messages.includes('Image dimensions too large')
+            ? MESSAGES.imageDimensions
+            : MESSAGES.imageUploadFailed,
+        );
+      }
+      if (IMAGE_ORDER_URL.test(url)) return appError(400, MESSAGES.imagesChanged);
       const fieldErrors = validationMessagesToFieldErrors(messages);
       return appError(400, MESSAGES.invalidData, fieldErrors);
     }
     case 401:
       return appError(401, isLogin ? MESSAGES.invalidCredentials : MESSAGES.sessionExpired);
+    case 403:
+      return appError(403, MESSAGES.forbidden);
     case 404:
-      return appError(404, MESSAGES.productNotFound);
+      return appError(
+        404,
+        messages.includes('Image not found') ? MESSAGES.imageNotFound : MESSAGES.productNotFound,
+      );
     case 409:
-      return isRegister
-        ? appError(409, MESSAGES.duplicateEmail, { email: MESSAGES.duplicateEmail })
-        : appError(409, MESSAGES.duplicateSku, { sku: MESSAGES.duplicateSku });
+      if (isRegister) {
+        return appError(409, MESSAGES.duplicateEmail, { email: MESSAGES.duplicateEmail });
+      }
+      if (STOCK_URL.test(url)) {
+        return appError(409, MESSAGES.insufficientStock, { quantity: MESSAGES.insufficientStock });
+      }
+      if (IMAGE_UPLOAD_URL.test(url)) return appError(409, MESSAGES.imageLimit);
+      return appError(409, MESSAGES.duplicateSku, { sku: MESSAGES.duplicateSku });
+    case 413:
+      return appError(413, MESSAGES.imageTooLarge);
+    case 415:
+      return appError(415, MESSAGES.unsupportedImage);
     case 429:
       return appError(429, MESSAGES.tooManyRequests);
     default:

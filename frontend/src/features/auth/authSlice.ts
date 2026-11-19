@@ -1,7 +1,8 @@
 import { createSlice, isPending, isRejected } from '@reduxjs/toolkit';
 import { authApi } from '../../api/authApi';
 import { createAppAsyncThunk } from '../../app/hooks';
-import type { LoginRequest, RegisterRequest, User } from '../../types/auth';
+import type { RootState } from '../../app/store';
+import type { LoginRequest, RegisterRequest, User, UserRole } from '../../types/auth';
 import { MESSAGES, toAppError } from '../../utils/errorMessages';
 
 export const TOKEN_STORAGE_KEY = 'productos.token';
@@ -109,4 +110,19 @@ const authSlice = createSlice({
 });
 
 export const { logout, clearAuthError } = authSlice.actions;
+
+/** Start screen of each role (contract §7.3). */
+export const HOME_PATHS: Record<UserRole, string> = {
+  seller: '/seller/products',
+  buyer: '/catalog',
+};
+
+/** Role of the logged-in user, from GET /auth/me (the token is never decoded). */
+export const selectRole = (state: RootState): UserRole | null => state.auth.user?.role ?? null;
+
+/** Where the user lands after login, on "/" and after a forbidden route. */
+export const selectHomePath = (state: RootState): string => {
+  const role = selectRole(state);
+  return role ? HOME_PATHS[role] : '/login';
+};
 export default authSlice.reducer;

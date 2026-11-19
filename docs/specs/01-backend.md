@@ -1,7 +1,26 @@
 # Spec 01 – Backend: API de Productos (NestJS + MongoDB)
 
-> Estado: borrador para revisión
+> Estado: implementada (1.0.0) y ampliada por la [spec 03](03-mejoras-roles-vendedor-comprador.md) (1.1.0)
 > Ejercicio: 1 de la prueba técnica Full Stack
+
+## Cambios en la versión 1.1.0
+
+Esta spec describe la versión 1.0.0, que es la respuesta al ejercicio 1. El código actual implementa la **1.1.0** de la spec 03. Lo que manda ahora es [`api-contract.md`](api-contract.md) 1.1.0. Qué cambió respecto de cada sección:
+
+| Sección | En la 1.0.0 (este documento) | En la 1.1.0 |
+|---|---|---|
+| §2 Alcance | Sin roles ni imágenes | Roles `seller`/`buyer`, imágenes, stock por ajustes y descuentos |
+| §4.1 Producto | `sku` único global | Además `sellerId`, `discountPercent`, `finalPrice` e `images`; `sku` único **por vendedor** |
+| §4.2 Usuario | Sin rol | `role` obligatorio e inmutable, también en el JWT |
+| §5 Endpoints | CRUD en `/products` | `/products` es el catálogo de solo lectura (más `/products/categories`); la gestión está en `/seller/products`, con stock, descuento e imágenes |
+| §5.3 Query | `limit` 10/100 y `sortBy` sin `finalPrice` | El catálogo usa `limit` 12/48 y filtros; el vendedor agrega `sortBy=finalPrice` |
+| §6 Errores | Hasta 409 | Agrega 403, 413 y 415, y nuevos casos de 400, 404 y 409 (contrato §6.2) |
+| §7 Seguridad | Límites "por ejemplo" | 100/min por IP, 5/min en login y 20/min por usuario en la subida de imágenes; `sellerId` siempre sale del token |
+| §8 Swagger | Versión `1.0.0`, tags `Auth` y `Products` | Versión `1.1.0`, tags `Auth`, `Catalog` y `Seller products`; subida `multipart/form-data` |
+| §9 Configuración | 5 variables | Además `PUBLIC_BASE_URL` y `UPLOADS_DIR` (obligatorias) |
+| §10 Estructura | Un `ProductsController` | `CatalogController`, `SellerProductsController`, módulos `images` y `storage`, `app.setup.ts` y `scripts/seed.ts` |
+
+El detalle de la implementación y de cada decisión está en [`IMPLEMENTATION_LOG.md`](IMPLEMENTATION_LOG.md).
 
 ## 1. Objetivo
 
@@ -100,7 +119,7 @@ Query params de `GET /products`:
 |---|---|---|---|
 | `page` | entero | 1 | Mínimo 1 |
 | `limit` | entero | 10 | Entre 1 y 100 |
-| `search` | string | — | Busca en `name`, sin distinguir mayúsculas |
+| `search` | string | — | Busca en `name`, sin distinguir mayúsculas ni tildes (el criterio de §11 pide que `cafe` encuentre `Café`) |
 | `sortBy` | string | `createdAt` | Uno de: `name`, `price`, `stock`, `createdAt` |
 | `order` | string | `desc` | `asc` o `desc` |
 

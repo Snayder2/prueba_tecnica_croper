@@ -32,7 +32,11 @@ export class AuthController {
   @ApiCreatedResponse({ description: 'Usuario creado', type: UserResponseDto })
   @ApiErrorResponse(400, 'Datos inválidos', '/api/v1/auth/register', {
     summary: 'Datos inválidos',
-    message: ['email must be an email', 'password must contain at least one letter and one number'],
+    message: [
+      'email must be an email',
+      'password must contain at least one letter and one number',
+      'role must be one of the following values: seller, buyer',
+    ],
   })
   @ApiErrorResponse(409, 'El email ya está registrado', '/api/v1/auth/register', {
     summary: 'Email duplicado',

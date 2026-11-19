@@ -1,6 +1,12 @@
 # Prueba Técnica Full Stack – Croper
 
-Prueba técnica Full Stack: una API REST de productos con NestJS y MongoDB (Ejercicio 1), un frontend en React con Vite, TypeScript, Redux Toolkit y Tailwind (Ejercicio 2) y respuestas teóricas (Ejercicios 3, 4 y 5).
+Prueba técnica Full Stack con tres partes:
+
+- **Ejercicio 1:** una API REST de productos con NestJS y MongoDB.
+- **Ejercicio 2:** un frontend en React con Vite, TypeScript, Redux Toolkit y Tailwind.
+- **Ejercicios 3, 4 y 5:** respuestas teóricas.
+
+Como mejora adicional ([spec 03](docs/specs/03-mejoras-roles-vendedor-comprador.md), contrato 1.1.0), la app es un pequeño marketplace agro. Los **vendedores** gestionan sus productos con stock, descuentos e imágenes, y los **compradores** recorren un catálogo con filtros.
 
 ## Estructura del repositorio
 
@@ -39,10 +45,13 @@ docker compose up -d
 cd backend
 npm install
 cp .env.example .env
+npm run seed          # base de datos con usuarios, productos e imágenes de prueba
 npm run start:dev
 ```
 
 Swagger: http://localhost:3000/api/docs
+
+Usuarios de prueba (contraseña `Clave1234`): `ana.vendedora@correo.com` y `bruno.vendedor@correo.com` (vendedores), y `carla.compradora@correo.com` (comprador). `npm run seed` se puede repetir para volver a ese estado.
 
 Detalle de variables, tests y ejemplos en [backend/README.md](backend/README.md).
 
@@ -63,6 +72,8 @@ Detalle, capturas y decisiones en [frontend/README.md](frontend/README.md).
 
 - [Especificación del backend](docs/specs/01-backend.md)
 - [Especificación del frontend](docs/specs/02-frontend.md)
+- [Spec 03: vendedores, compradores, imágenes, stock y descuentos](docs/specs/03-mejoras-roles-vendedor-comprador.md)
+- [Registro de implementación de la spec 03](docs/specs/IMPLEMENTATION_LOG.md)
 - [Contrato de la API](docs/specs/api-contract.md)
 - [OpenAPI exportado](docs/openapi.json) (se regenera con `npm run docs:export` en `backend/`)
 - [Respuestas teóricas (Ejercicios 3, 4 y 5)](docs/respuestas-teoricas.md)

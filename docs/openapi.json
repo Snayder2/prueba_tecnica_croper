@@ -42,7 +42,8 @@
                       "error": "Bad Request",
                       "message": [
                         "email must be an email",
-                        "password must contain at least one letter and one number"
+                        "password must contain at least one letter and one number",
+                        "role must be one of the following values: seller, buyer"
                       ],
                       "path": "/api/v1/auth/register",
                       "timestamp": "2026-11-17T21:30:00.000Z"
@@ -276,148 +277,9 @@
       }
     },
     "/api/v1/products": {
-      "post": {
-        "description": "`isActive` es `true` por defecto. El `sku` debe ser único.",
-        "operationId": "ProductsController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateProductDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Producto creado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProductResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Datos inválidos o campos no permitidos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                },
-                "examples": {
-                  "case1": {
-                    "summary": "Datos inválidos",
-                    "value": {
-                      "statusCode": 400,
-                      "error": "Bad Request",
-                      "message": [
-                        "price must not be less than 0",
-                        "sku must match /^[A-Z0-9-]+$/ regular expression"
-                      ],
-                      "path": "/api/v1/products",
-                      "timestamp": "2026-11-17T21:30:00.000Z"
-                    }
-                  },
-                  "case2": {
-                    "summary": "Campo no permitido",
-                    "value": {
-                      "statusCode": 400,
-                      "error": "Bad Request",
-                      "message": [
-                        "property foo should not exist"
-                      ],
-                      "path": "/api/v1/products",
-                      "timestamp": "2026-11-17T21:30:00.000Z"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Sin token, token inválido o expirado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                },
-                "examples": {
-                  "case1": {
-                    "summary": "No autenticado",
-                    "value": {
-                      "statusCode": 401,
-                      "error": "Unauthorized",
-                      "message": "Unauthorized",
-                      "path": "/api/v1/products",
-                      "timestamp": "2026-11-17T21:30:00.000Z"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Ya existe un producto con ese SKU",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                },
-                "examples": {
-                  "case1": {
-                    "summary": "SKU duplicado",
-                    "value": {
-                      "statusCode": 409,
-                      "error": "Conflict",
-                      "message": "SKU already exists",
-                      "path": "/api/v1/products",
-                      "timestamp": "2026-11-17T21:30:00.000Z"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Límite global de peticiones superado",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                },
-                "examples": {
-                  "case1": {
-                    "summary": "Demasiadas peticiones",
-                    "value": {
-                      "statusCode": 429,
-                      "error": "Too Many Requests",
-                      "message": "Too many requests",
-                      "path": "/api/v1/products",
-                      "timestamp": "2026-11-17T21:30:00.000Z"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Crear un producto",
-        "tags": [
-          "Products"
-        ]
-      },
       "get": {
-        "description": "Lista paginada. `search` busca en el nombre sin distinguir mayúsculas ni tildes. Si `page` supera `totalPages`, devuelve `data: []` con el `meta` correcto.",
-        "operationId": "ProductsController_findAll",
+        "description": "Productos activos de todos los vendedores, paginados. `search` busca en el nombre sin distinguir mayúsculas ni tildes. Si `page` supera `totalPages`, devuelve `data: []` con el `meta` correcto.",
+        "operationId": "CatalogController_findAll",
         "parameters": [
           {
             "name": "page",
@@ -435,12 +297,12 @@
             "name": "limit",
             "required": false,
             "in": "query",
-            "description": "Elementos por página",
+            "description": "Elementos por página (12, 24 y 48 encajan en la grilla)",
             "schema": {
               "minimum": 1,
-              "maximum": 100,
-              "default": 10,
-              "example": 10,
+              "maximum": 48,
+              "default": 12,
+              "example": 12,
               "type": "integer"
             }
           },
@@ -448,11 +310,66 @@
             "name": "search",
             "required": false,
             "in": "query",
-            "description": "Texto a buscar en el nombre (sin distinguir mayúsculas ni tildes)",
+            "description": "Texto a buscar en el nombre, sin distinguir mayúsculas ni tildes. Se busca literal.",
             "schema": {
               "maxLength": 100,
               "example": "cafe",
               "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "description": "Categoría exacta (distingue mayúsculas y tildes)",
+            "schema": {
+              "maxLength": 50,
+              "example": "Café",
+              "type": "string"
+            }
+          },
+          {
+            "name": "minPrice",
+            "required": false,
+            "in": "query",
+            "description": "Precio final mínimo (`finalPrice` ≥ minPrice)",
+            "schema": {
+              "minimum": 0,
+              "example": 10000,
+              "type": "number"
+            }
+          },
+          {
+            "name": "maxPrice",
+            "required": false,
+            "in": "query",
+            "description": "Precio final máximo (`finalPrice` ≤ maxPrice)",
+            "schema": {
+              "minimum": 0,
+              "example": 40000,
+              "type": "number"
+            }
+          },
+          {
+            "name": "onSale",
+            "required": false,
+            "in": "query",
+            "description": "`true` = solo productos con descuento. Cualquier otro valor cuenta como `false`",
+            "schema": {
+              "default": false,
+              "example": true,
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "inStock",
+            "required": false,
+            "in": "query",
+            "description": "`true` = solo productos con stock. Cualquier otro valor cuenta como `false`",
+            "schema": {
+              "default": false,
+              "example": true,
+              "type": "boolean"
             }
           },
           {
@@ -462,13 +379,13 @@
             "description": "Campo de ordenamiento",
             "schema": {
               "default": "createdAt",
-              "example": "price",
+              "example": "finalPrice",
               "type": "string",
               "enum": [
+                "createdAt",
+                "finalPrice",
                 "name",
-                "price",
-                "stock",
-                "createdAt"
+                "discountPercent"
               ]
             }
           },
@@ -513,19 +430,19 @@
                       "statusCode": 400,
                       "error": "Bad Request",
                       "message": [
-                        "limit must not be greater than 100"
+                        "limit must not be greater than 48"
                       ],
                       "path": "/api/v1/products",
                       "timestamp": "2026-11-17T21:30:00.000Z"
                     }
                   },
                   "case2": {
-                    "summary": "sortBy no permitido",
+                    "summary": "Rango de precio inválido",
                     "value": {
                       "statusCode": 400,
                       "error": "Bad Request",
                       "message": [
-                        "sortBy must be one of the following values: name, price, stock, createdAt"
+                        "minPrice must not be greater than maxPrice"
                       ],
                       "path": "/api/v1/products",
                       "timestamp": "2026-11-17T21:30:00.000Z"
@@ -558,7 +475,7 @@
             }
           },
           "429": {
-            "description": "Límite global de peticiones superado",
+            "description": "Límite de peticiones superado",
             "content": {
               "application/json": {
                 "schema": {
@@ -585,15 +502,96 @@
             "bearer": []
           }
         ],
-        "summary": "Listar productos",
+        "summary": "Catálogo de productos",
         "tags": [
-          "Products"
+          "Catalog"
+        ]
+      }
+    },
+    "/api/v1/products/categories": {
+      "get": {
+        "description": "Categorías distintas de los productos activos, ordenadas alfabéticamente en español. No incluye productos sin categoría.",
+        "operationId": "CatalogController_findCategories",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Lista de categorías",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "example": [
+                    "Café",
+                    "Fertilizantes",
+                    "Semillas"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token, token inválido o expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "No autenticado",
+                    "value": {
+                      "statusCode": 401,
+                      "error": "Unauthorized",
+                      "message": "Unauthorized",
+                      "path": "/api/v1/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Límite de peticiones superado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Demasiadas peticiones",
+                    "value": {
+                      "statusCode": 429,
+                      "error": "Too Many Requests",
+                      "message": "Too many requests",
+                      "path": "/api/v1/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Categorías del catálogo",
+        "tags": [
+          "Catalog"
         ]
       }
     },
     "/api/v1/products/{id}": {
       "get": {
-        "operationId": "ProductsController_findOne",
+        "description": "Un producto oculto (`isActive: false`) responde 404.",
+        "operationId": "CatalogController_findOne",
         "parameters": [
           {
             "name": "id",
@@ -662,7 +660,7 @@
             }
           },
           "404": {
-            "description": "El producto no existe",
+            "description": "El producto no existe o está oculto",
             "content": {
               "application/json": {
                 "schema": {
@@ -684,7 +682,7 @@
             }
           },
           "429": {
-            "description": "Límite global de peticiones superado",
+            "description": "Límite de peticiones superado",
             "content": {
               "application/json": {
                 "schema": {
@@ -711,14 +709,523 @@
             "bearer": []
           }
         ],
-        "summary": "Obtener un producto por id",
+        "summary": "Detalle de un producto del catálogo",
         "tags": [
-          "Products"
+          "Catalog"
+        ]
+      }
+    },
+    "/api/v1/seller/products": {
+      "get": {
+        "description": "Productos del vendedor del token, activos y ocultos, paginados. `search` busca en el nombre sin distinguir mayúsculas ni tildes.",
+        "operationId": "SellerProductsController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Número de página (empieza en 1)",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "example": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Elementos por página",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "example": 10,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Texto a buscar en el nombre, sin distinguir mayúsculas ni tildes. Se busca literal.",
+            "schema": {
+              "maxLength": 100,
+              "example": "cafe",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "description": "Campo de ordenamiento",
+            "schema": {
+              "default": "createdAt",
+              "example": "price",
+              "type": "string",
+              "enum": [
+                "name",
+                "price",
+                "finalPrice",
+                "stock",
+                "createdAt"
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "description": "Dirección del ordenamiento",
+            "schema": {
+              "default": "desc",
+              "example": "asc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista paginada de productos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedProductsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Parámetros de consulta inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "limit fuera de rango",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": [
+                        "limit must not be greater than 100"
+                      ],
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  },
+                  "case2": {
+                    "summary": "sortBy no permitido",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": [
+                        "sortBy must be one of the following values: name, price, finalPrice, stock, createdAt"
+                      ],
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token, token inválido o expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "No autenticado",
+                    "value": {
+                      "statusCode": 401,
+                      "error": "Unauthorized",
+                      "message": "Unauthorized",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El usuario no tiene rol `seller`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Rol sin permiso",
+                    "value": {
+                      "statusCode": 403,
+                      "error": "Forbidden",
+                      "message": "Forbidden",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Límite de peticiones superado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Demasiadas peticiones",
+                    "value": {
+                      "statusCode": 429,
+                      "error": "Too Many Requests",
+                      "message": "Too many requests",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar mis productos",
+        "tags": [
+          "Seller products"
+        ]
+      },
+      "post": {
+        "description": "El producto queda asociado al vendedor del token. `isActive` es `true` por defecto, `discountPercent` empieza en 0 y `finalPrice` es igual a `price`. El `sku` es único por vendedor.",
+        "operationId": "SellerProductsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Producto creado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos inválidos o campos no permitidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Datos inválidos",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": [
+                        "price must not be less than 0",
+                        "sku must match /^[A-Z0-9-]+$/ regular expression"
+                      ],
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  },
+                  "case2": {
+                    "summary": "Campo no permitido",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": [
+                        "property sellerId should not exist"
+                      ],
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token, token inválido o expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "No autenticado",
+                    "value": {
+                      "statusCode": 401,
+                      "error": "Unauthorized",
+                      "message": "Unauthorized",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El usuario no tiene rol `seller`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Rol sin permiso",
+                    "value": {
+                      "statusCode": 403,
+                      "error": "Forbidden",
+                      "message": "Forbidden",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Ya existe un producto con ese SKU en este vendedor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "SKU duplicado",
+                    "value": {
+                      "statusCode": 409,
+                      "error": "Conflict",
+                      "message": "SKU already exists",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Límite de peticiones superado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Demasiadas peticiones",
+                    "value": {
+                      "statusCode": 429,
+                      "error": "Too Many Requests",
+                      "message": "Too many requests",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Crear un producto",
+        "tags": [
+          "Seller products"
+        ]
+      }
+    },
+    "/api/v1/seller/products/{id}": {
+      "get": {
+        "operationId": "SellerProductsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ObjectId del producto (24 caracteres hexadecimales)",
+            "schema": {
+              "example": "6739f3b2c4e5b8a9d0f12346",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Producto encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "id con formato inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "id con formato inválido",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": "Invalid id",
+                      "path": "/api/v1/seller/products/abc",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token, token inválido o expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "No autenticado",
+                    "value": {
+                      "statusCode": 401,
+                      "error": "Unauthorized",
+                      "message": "Unauthorized",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El usuario no tiene rol `seller`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Rol sin permiso",
+                    "value": {
+                      "statusCode": 403,
+                      "error": "Forbidden",
+                      "message": "Forbidden",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "El producto no existe o es de otro vendedor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Producto no encontrado",
+                    "value": {
+                      "statusCode": 404,
+                      "error": "Not Found",
+                      "message": "Product not found",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Límite de peticiones superado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Demasiadas peticiones",
+                    "value": {
+                      "statusCode": 429,
+                      "error": "Too Many Requests",
+                      "message": "Too many requests",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener uno de mis productos",
+        "tags": [
+          "Seller products"
         ]
       },
       "patch": {
-        "description": "Solo se modifican los campos enviados. `null` borra `description` o `category`.",
-        "operationId": "ProductsController_update",
+        "description": "Solo se modifican los campos enviados. `null` borra `description` o `category`. `stock` no se acepta: se cambia con `POST /seller/products/{id}/stock-adjustments`.",
+        "operationId": "SellerProductsController_update",
         "parameters": [
           {
             "name": "id",
@@ -769,7 +1276,7 @@
                         "price must not be less than 0",
                         "sku must match /^[A-Z0-9-]+$/ regular expression"
                       ],
-                      "path": "/api/v1/products/6739f3b2c4e5b8a9d0f12346",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346",
                       "timestamp": "2026-11-17T21:30:00.000Z"
                     }
                   },
@@ -779,19 +1286,31 @@
                       "statusCode": 400,
                       "error": "Bad Request",
                       "message": [
-                        "property foo should not exist"
+                        "property sellerId should not exist"
                       ],
-                      "path": "/api/v1/products/6739f3b2c4e5b8a9d0f12346",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346",
                       "timestamp": "2026-11-17T21:30:00.000Z"
                     }
                   },
                   "case3": {
+                    "summary": "stock no se edita aquí",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": [
+                        "property stock should not exist"
+                      ],
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  },
+                  "case4": {
                     "summary": "id con formato inválido",
                     "value": {
                       "statusCode": 400,
                       "error": "Bad Request",
                       "message": "Invalid id",
-                      "path": "/api/v1/products/6739f3b2c4e5b8a9d0f12346",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346",
                       "timestamp": "2026-11-17T21:30:00.000Z"
                     }
                   }
@@ -813,7 +1332,29 @@
                       "statusCode": 401,
                       "error": "Unauthorized",
                       "message": "Unauthorized",
-                      "path": "/api/v1/products",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El usuario no tiene rol `seller`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Rol sin permiso",
+                    "value": {
+                      "statusCode": 403,
+                      "error": "Forbidden",
+                      "message": "Forbidden",
+                      "path": "/api/v1/seller/products",
                       "timestamp": "2026-11-17T21:30:00.000Z"
                     }
                   }
@@ -822,7 +1363,7 @@
             }
           },
           "404": {
-            "description": "El producto no existe",
+            "description": "El producto no existe o es de otro vendedor",
             "content": {
               "application/json": {
                 "schema": {
@@ -835,7 +1376,7 @@
                       "statusCode": 404,
                       "error": "Not Found",
                       "message": "Product not found",
-                      "path": "/api/v1/products/6739f3b2c4e5b8a9d0f12346",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346",
                       "timestamp": "2026-11-17T21:30:00.000Z"
                     }
                   }
@@ -844,7 +1385,7 @@
             }
           },
           "409": {
-            "description": "Ya existe un producto con ese SKU",
+            "description": "Ya existe un producto con ese SKU en este vendedor",
             "content": {
               "application/json": {
                 "schema": {
@@ -857,7 +1398,7 @@
                       "statusCode": 409,
                       "error": "Conflict",
                       "message": "SKU already exists",
-                      "path": "/api/v1/products/6739f3b2c4e5b8a9d0f12346",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346",
                       "timestamp": "2026-11-17T21:30:00.000Z"
                     }
                   }
@@ -866,7 +1407,7 @@
             }
           },
           "429": {
-            "description": "Límite global de peticiones superado",
+            "description": "Límite de peticiones superado",
             "content": {
               "application/json": {
                 "schema": {
@@ -879,7 +1420,7 @@
                       "statusCode": 429,
                       "error": "Too Many Requests",
                       "message": "Too many requests",
-                      "path": "/api/v1/products",
+                      "path": "/api/v1/seller/products",
                       "timestamp": "2026-11-17T21:30:00.000Z"
                     }
                   }
@@ -893,14 +1434,14 @@
             "bearer": []
           }
         ],
-        "summary": "Actualizar parcialmente un producto",
+        "summary": "Editar uno de mis productos",
         "tags": [
-          "Products"
+          "Seller products"
         ]
       },
       "delete": {
         "description": "Eliminación física.",
-        "operationId": "ProductsController_remove",
+        "operationId": "SellerProductsController_remove",
         "parameters": [
           {
             "name": "id",
@@ -931,7 +1472,7 @@
                       "statusCode": 400,
                       "error": "Bad Request",
                       "message": "Invalid id",
-                      "path": "/api/v1/products/abc",
+                      "path": "/api/v1/seller/products/abc",
                       "timestamp": "2026-11-17T21:30:00.000Z"
                     }
                   }
@@ -953,7 +1494,29 @@
                       "statusCode": 401,
                       "error": "Unauthorized",
                       "message": "Unauthorized",
-                      "path": "/api/v1/products",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El usuario no tiene rol `seller`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Rol sin permiso",
+                    "value": {
+                      "statusCode": 403,
+                      "error": "Forbidden",
+                      "message": "Forbidden",
+                      "path": "/api/v1/seller/products",
                       "timestamp": "2026-11-17T21:30:00.000Z"
                     }
                   }
@@ -962,7 +1525,7 @@
             }
           },
           "404": {
-            "description": "El producto no existe",
+            "description": "El producto no existe o es de otro vendedor",
             "content": {
               "application/json": {
                 "schema": {
@@ -975,7 +1538,7 @@
                       "statusCode": 404,
                       "error": "Not Found",
                       "message": "Product not found",
-                      "path": "/api/v1/products/6739f3b2c4e5b8a9d0f12346",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346",
                       "timestamp": "2026-11-17T21:30:00.000Z"
                     }
                   }
@@ -984,7 +1547,7 @@
             }
           },
           "429": {
-            "description": "Límite global de peticiones superado",
+            "description": "Límite de peticiones superado",
             "content": {
               "application/json": {
                 "schema": {
@@ -997,7 +1560,7 @@
                       "statusCode": 429,
                       "error": "Too Many Requests",
                       "message": "Too many requests",
-                      "path": "/api/v1/products",
+                      "path": "/api/v1/seller/products",
                       "timestamp": "2026-11-17T21:30:00.000Z"
                     }
                   }
@@ -1011,17 +1574,1166 @@
             "bearer": []
           }
         ],
-        "summary": "Eliminar un producto",
+        "summary": "Eliminar uno de mis productos",
         "tags": [
-          "Products"
+          "Seller products"
+        ]
+      }
+    },
+    "/api/v1/seller/products/{id}/stock-adjustments": {
+      "post": {
+        "description": "Operación atómica: una salida mayor al stock actual responde 409 y no cambia nada, así que el stock nunca queda negativo aunque lleguen varias salidas a la vez.",
+        "operationId": "SellerProductsController_adjustStock",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ObjectId del producto (24 caracteres hexadecimales)",
+            "schema": {
+              "example": "6739f3b2c4e5b8a9d0f12346",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockAdjustmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Producto con el stock actualizado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos o id inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Datos inválidos",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": [
+                        "type must be one of the following values: increase, decrease",
+                        "quantity must not be less than 1"
+                      ],
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/stock-adjustments",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  },
+                  "case2": {
+                    "summary": "id con formato inválido",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": "Invalid id",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/stock-adjustments",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token, token inválido o expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "No autenticado",
+                    "value": {
+                      "statusCode": 401,
+                      "error": "Unauthorized",
+                      "message": "Unauthorized",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El usuario no tiene rol `seller`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Rol sin permiso",
+                    "value": {
+                      "statusCode": 403,
+                      "error": "Forbidden",
+                      "message": "Forbidden",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "El producto no existe o es de otro vendedor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Producto no encontrado",
+                    "value": {
+                      "statusCode": 404,
+                      "error": "Not Found",
+                      "message": "Product not found",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/stock-adjustments",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La salida es mayor al stock actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Stock insuficiente",
+                    "value": {
+                      "statusCode": 409,
+                      "error": "Conflict",
+                      "message": "Insufficient stock",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/stock-adjustments",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Límite de peticiones superado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Demasiadas peticiones",
+                    "value": {
+                      "statusCode": 429,
+                      "error": "Too Many Requests",
+                      "message": "Too many requests",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ajustar el stock (entrada o salida)",
+        "tags": [
+          "Seller products"
+        ]
+      }
+    },
+    "/api/v1/seller/products/{id}/discount": {
+      "put": {
+        "description": "`finalPrice = round(price × (100 − percent) / 100, 2)`, con las mitades hacia arriba. Se recalcula en la misma operación que guarda el descuento.",
+        "operationId": "SellerProductsController_setDiscount",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ObjectId del producto (24 caracteres hexadecimales)",
+            "schema": {
+              "example": "6739f3b2c4e5b8a9d0f12346",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscountDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Producto con el descuento aplicado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Porcentaje o id inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Porcentaje fuera de rango",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": [
+                        "percent must not be greater than 90"
+                      ],
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/discount",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  },
+                  "case2": {
+                    "summary": "id con formato inválido",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": "Invalid id",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/discount",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token, token inválido o expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "No autenticado",
+                    "value": {
+                      "statusCode": 401,
+                      "error": "Unauthorized",
+                      "message": "Unauthorized",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El usuario no tiene rol `seller`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Rol sin permiso",
+                    "value": {
+                      "statusCode": 403,
+                      "error": "Forbidden",
+                      "message": "Forbidden",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "El producto no existe o es de otro vendedor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Producto no encontrado",
+                    "value": {
+                      "statusCode": 404,
+                      "error": "Not Found",
+                      "message": "Product not found",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/discount",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Límite de peticiones superado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Demasiadas peticiones",
+                    "value": {
+                      "statusCode": 429,
+                      "error": "Too Many Requests",
+                      "message": "Too many requests",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Aplicar o cambiar el descuento",
+        "tags": [
+          "Seller products"
+        ]
+      },
+      "delete": {
+        "description": "Deja `discountPercent: 0` y `finalPrice` igual a `price`. Sin descuento previo responde 200 sin cambios.",
+        "operationId": "SellerProductsController_removeDiscount",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ObjectId del producto (24 caracteres hexadecimales)",
+            "schema": {
+              "example": "6739f3b2c4e5b8a9d0f12346",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Producto sin descuento",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "id con formato inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "id con formato inválido",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": "Invalid id",
+                      "path": "/api/v1/seller/products/abc/discount",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token, token inválido o expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "No autenticado",
+                    "value": {
+                      "statusCode": 401,
+                      "error": "Unauthorized",
+                      "message": "Unauthorized",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El usuario no tiene rol `seller`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Rol sin permiso",
+                    "value": {
+                      "statusCode": 403,
+                      "error": "Forbidden",
+                      "message": "Forbidden",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "El producto no existe o es de otro vendedor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Producto no encontrado",
+                    "value": {
+                      "statusCode": 404,
+                      "error": "Not Found",
+                      "message": "Product not found",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/discount",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Límite de peticiones superado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Demasiadas peticiones",
+                    "value": {
+                      "statusCode": 429,
+                      "error": "Too Many Requests",
+                      "message": "Too many requests",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Quitar el descuento",
+        "tags": [
+          "Seller products"
+        ]
+      }
+    },
+    "/api/v1/seller/products/{id}/images": {
+      "post": {
+        "description": "Un archivo por petición, en el campo `image` (`multipart/form-data`, sin campos de texto). JPEG, PNG o WebP según su contenido real, máximo 1 MB (1 048 576 bytes) y 40 megapíxeles. Se re-codifica a WebP (máximo 1200 px y miniatura de 400 × 400) sin metadatos y se agrega al final de `images`. Máximo 5 imágenes por producto. Límite: 20 subidas por minuto por usuario.",
+        "operationId": "SellerProductsController_uploadImage",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ObjectId del producto (24 caracteres hexadecimales)",
+            "schema": {
+              "example": "6739f3b2c4e5b8a9d0f12346",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "image"
+                ],
+                "properties": {
+                  "image": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "JPEG, PNG o WebP, máximo 1 MB"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Producto con la imagen nueva al final",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Petición mal formada, id inválido o imagen de más de 40 megapíxeles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Sin archivo",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": "Image is required",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/images",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  },
+                  "case2": {
+                    "summary": "Campo con otro nombre",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": "Unexpected file field - file",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/images",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  },
+                  "case3": {
+                    "summary": "Varios archivos",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": "Too many files",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/images",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  },
+                  "case4": {
+                    "summary": "Campos de texto",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": "Too many fields",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/images",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  },
+                  "case5": {
+                    "summary": "Resolución excesiva",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": "Image dimensions too large",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/images",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  },
+                  "case6": {
+                    "summary": "id con formato inválido",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": "Invalid id",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/images",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token, token inválido o expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "No autenticado",
+                    "value": {
+                      "statusCode": 401,
+                      "error": "Unauthorized",
+                      "message": "Unauthorized",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El usuario no tiene rol `seller`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Rol sin permiso",
+                    "value": {
+                      "statusCode": 403,
+                      "error": "Forbidden",
+                      "message": "Forbidden",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "El producto no existe o es de otro vendedor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Producto no encontrado",
+                    "value": {
+                      "statusCode": 404,
+                      "error": "Not Found",
+                      "message": "Product not found",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/images",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "El producto ya tiene 5 imágenes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Límite de imágenes",
+                    "value": {
+                      "statusCode": 409,
+                      "error": "Conflict",
+                      "message": "Image limit reached",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/images",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "El archivo pesa más de 1 MB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Archivo muy grande",
+                    "value": {
+                      "statusCode": 413,
+                      "error": "Payload Too Large",
+                      "message": "File too large",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/images",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "No es JPEG, PNG ni WebP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Formato no permitido",
+                    "value": {
+                      "statusCode": 415,
+                      "error": "Unsupported Media Type",
+                      "message": "Unsupported file type",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/images",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Más de 20 subidas por minuto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Demasiadas peticiones",
+                    "value": {
+                      "statusCode": 429,
+                      "error": "Too Many Requests",
+                      "message": "Too many requests",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/images",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Subir una imagen",
+        "tags": [
+          "Seller products"
+        ]
+      }
+    },
+    "/api/v1/seller/products/{id}/images/{imageId}": {
+      "delete": {
+        "description": "Se quita del producto y después se borran sus archivos.",
+        "operationId": "SellerProductsController_deleteImage",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ObjectId del producto (24 caracteres hexadecimales)",
+            "schema": {
+              "example": "6739f3b2c4e5b8a9d0f12346",
+              "type": "string"
+            }
+          },
+          {
+            "name": "imageId",
+            "required": true,
+            "in": "path",
+            "description": "ObjectId de la imagen",
+            "schema": {
+              "example": "673a01c9c4e5b8a9d0f12401",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Producto sin esa imagen",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "id o imageId con formato inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "id con formato inválido",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": "Invalid id",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/images/abc",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token, token inválido o expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "No autenticado",
+                    "value": {
+                      "statusCode": 401,
+                      "error": "Unauthorized",
+                      "message": "Unauthorized",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El usuario no tiene rol `seller`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Rol sin permiso",
+                    "value": {
+                      "statusCode": 403,
+                      "error": "Forbidden",
+                      "message": "Forbidden",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "El producto o la imagen no existen",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Producto no encontrado",
+                    "value": {
+                      "statusCode": 404,
+                      "error": "Not Found",
+                      "message": "Product not found",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/images/673a01c9c4e5b8a9d0f12401",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  },
+                  "case2": {
+                    "summary": "Imagen no encontrada",
+                    "value": {
+                      "statusCode": 404,
+                      "error": "Not Found",
+                      "message": "Image not found",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/images/673a01c9c4e5b8a9d0f12401",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Límite de peticiones superado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Demasiadas peticiones",
+                    "value": {
+                      "statusCode": 429,
+                      "error": "Too Many Requests",
+                      "message": "Too many requests",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Eliminar una imagen",
+        "tags": [
+          "Seller products"
+        ]
+      }
+    },
+    "/api/v1/seller/products/{id}/images/order": {
+      "put": {
+        "description": "`imageIds` debe contener exactamente los ids actuales, en el nuevo orden. La primera imagen pasa a ser la principal. `[]` solo es válido si el producto no tiene imágenes.",
+        "operationId": "SellerProductsController_reorderImages",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ObjectId del producto (24 caracteres hexadecimales)",
+            "schema": {
+              "example": "6739f3b2c4e5b8a9d0f12346",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderImagesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Producto con las imágenes en el nuevo orden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "imageIds inválido o distinto de las imágenes actuales",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "No coincide con las imágenes actuales",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": [
+                        "imageIds must contain exactly the current image ids"
+                      ],
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/images/order",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  },
+                  "case2": {
+                    "summary": "Ids repetidos",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": [
+                        "All imageIds's elements must be unique"
+                      ],
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/images/order",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  },
+                  "case3": {
+                    "summary": "id con formato inválido",
+                    "value": {
+                      "statusCode": 400,
+                      "error": "Bad Request",
+                      "message": "Invalid id",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/images/order",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sin token, token inválido o expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "No autenticado",
+                    "value": {
+                      "statusCode": 401,
+                      "error": "Unauthorized",
+                      "message": "Unauthorized",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "El usuario no tiene rol `seller`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Rol sin permiso",
+                    "value": {
+                      "statusCode": 403,
+                      "error": "Forbidden",
+                      "message": "Forbidden",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "El producto no existe o es de otro vendedor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Producto no encontrado",
+                    "value": {
+                      "statusCode": 404,
+                      "error": "Not Found",
+                      "message": "Product not found",
+                      "path": "/api/v1/seller/products/6739f3b2c4e5b8a9d0f12346/images/order",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Límite de peticiones superado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                },
+                "examples": {
+                  "case1": {
+                    "summary": "Demasiadas peticiones",
+                    "value": {
+                      "statusCode": 429,
+                      "error": "Too Many Requests",
+                      "message": "Too many requests",
+                      "path": "/api/v1/seller/products",
+                      "timestamp": "2026-11-17T21:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Reordenar las imágenes",
+        "tags": [
+          "Seller products"
         ]
       }
     }
   },
   "info": {
-    "title": "API de Productos",
-    "description": "API REST para gestionar productos (NestJS + MongoDB).\n\n**Cómo probarla desde aquí**\n1. `POST /auth/register`: crea un usuario.\n2. `POST /auth/login`: copia el `accessToken` de la respuesta.\n3. Pulsa **Authorize**, pega el token y prueba los endpoints de `Products`.\n\nTodos los errores usan el mismo formato (`ErrorResponseDto`).",
-    "version": "1.0.0",
+    "title": "API de Productos – Vendedores y compradores",
+    "description": "API REST de un pequeño marketplace agro (NestJS + MongoDB), contrato 1.1.0.\n\n- **Vendedor (`seller`)**: gestiona sus productos en `Seller products`: CRUD, stock, descuento e imágenes.\n- **Comprador (`buyer`)**: consulta el catálogo de todos los vendedores en `Catalog`.\n\n**Cómo probarla desde aquí**\n1. `POST /auth/register` con `role: \"seller\"` o `\"buyer\"` (o usa los usuarios de `npm run seed`).\n2. `POST /auth/login`: copia el `accessToken` de la respuesta.\n3. Pulsa **Authorize**, pega el token y prueba los endpoints. La subida de imágenes muestra un selector de archivo.\n\nUn comprador recibe 403 en `/seller/...`, y un producto de otro vendedor responde 404.\nLas imágenes se sirven en `/uploads/products/...` sin token.\nTodos los errores usan el mismo formato (`ErrorResponseDto`).",
+    "version": "1.1.0",
     "contact": {}
   },
   "tags": [
@@ -1030,8 +2742,12 @@
       "description": "Registro, inicio de sesión y usuario actual"
     },
     {
-      "name": "Products",
-      "description": "CRUD de productos (requiere JWT)"
+      "name": "Catalog",
+      "description": "Catálogo de solo lectura para cualquier usuario autenticado"
+    },
+    {
+      "name": "Seller products",
+      "description": "Gestión de los productos propios (solo rol `seller`)"
     }
   ],
   "servers": [],
@@ -1067,12 +2783,22 @@
             "minLength": 2,
             "maxLength": 60,
             "example": "Ana Pérez"
+          },
+          "role": {
+            "type": "string",
+            "description": "Rol del usuario. Obligatorio y no se puede cambiar después",
+            "enum": [
+              "seller",
+              "buyer"
+            ],
+            "example": "seller"
           }
         },
         "required": [
           "email",
           "password",
-          "name"
+          "name",
+          "role"
         ]
       },
       "UserResponseDto": {
@@ -1091,6 +2817,15 @@
             "type": "string",
             "example": "Ana Pérez"
           },
+          "role": {
+            "type": "string",
+            "enum": [
+              "seller",
+              "buyer"
+            ],
+            "description": "Rol elegido al registrarse",
+            "example": "seller"
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -1106,6 +2841,7 @@
           "_id",
           "email",
           "name",
+          "role",
           "createdAt",
           "updatedAt"
         ]
@@ -1205,6 +2941,196 @@
           "expiresIn"
         ]
       },
+      "ProductImageResponseDto": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "description": "ObjectId de la imagen",
+            "example": "673a01c9c4e5b8a9d0f12401"
+          },
+          "url": {
+            "type": "string",
+            "description": "URL absoluta de la imagen grande (WebP, máximo 1200 px de lado)",
+            "example": "http://localhost:3000/uploads/products/9b1f6e2a-4c7d-4e0b-a1f3-2d8c5e7b9a10.webp"
+          },
+          "thumbUrl": {
+            "type": "string",
+            "description": "URL absoluta de la miniatura (WebP, 400 × 400 px)",
+            "example": "http://localhost:3000/uploads/products/9b1f6e2a-4c7d-4e0b-a1f3-2d8c5e7b9a10_thumb.webp"
+          },
+          "width": {
+            "type": "number",
+            "description": "Ancho de la imagen grande en px",
+            "example": 1200
+          },
+          "height": {
+            "type": "number",
+            "description": "Alto de la imagen grande en px",
+            "example": 1200
+          }
+        },
+        "required": [
+          "_id",
+          "url",
+          "thumbUrl",
+          "width",
+          "height"
+        ]
+      },
+      "SellerSummaryDto": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "description": "ObjectId del vendedor",
+            "example": "6739f2a1c4e5b8a9d0f12345"
+          },
+          "name": {
+            "type": "string",
+            "example": "Ana Pérez"
+          }
+        },
+        "required": [
+          "_id",
+          "name"
+        ]
+      },
+      "ProductResponseDto": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "description": "ObjectId del producto",
+            "example": "6739f3b2c4e5b8a9d0f12346"
+          },
+          "name": {
+            "type": "string",
+            "example": "Café de origen Huila 500 g"
+          },
+          "description": {
+            "type": "string",
+            "example": "Café especial tostado medio"
+          },
+          "price": {
+            "type": "number",
+            "description": "Precio de lista",
+            "example": 32000
+          },
+          "discountPercent": {
+            "type": "integer",
+            "description": "Porcentaje de descuento (0 = sin descuento)",
+            "minimum": 0,
+            "maximum": 90,
+            "example": 10
+          },
+          "finalPrice": {
+            "type": "number",
+            "description": "Precio con descuento, calculado por el backend",
+            "example": 28800
+          },
+          "stock": {
+            "type": "integer",
+            "example": 120
+          },
+          "category": {
+            "type": "string",
+            "example": "Café"
+          },
+          "sku": {
+            "type": "string",
+            "example": "CAF-HUI-500"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "`false` = oculto en el catálogo",
+            "example": true
+          },
+          "images": {
+            "description": "Hasta 5 imágenes. `images[0]` es la principal; puede estar vacío",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductImageResponseDto"
+            }
+          },
+          "seller": {
+            "$ref": "#/components/schemas/SellerSummaryDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-17T21:35:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-18T14:10:00.000Z"
+          }
+        },
+        "required": [
+          "_id",
+          "name",
+          "price",
+          "discountPercent",
+          "finalPrice",
+          "stock",
+          "sku",
+          "isActive",
+          "images",
+          "seller",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PaginationMetaDto": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "number",
+            "description": "Página actual",
+            "example": 1
+          },
+          "limit": {
+            "type": "number",
+            "description": "Elementos por página",
+            "example": 10
+          },
+          "total": {
+            "type": "number",
+            "description": "Total de elementos que cumplen el filtro",
+            "example": 42
+          },
+          "totalPages": {
+            "type": "number",
+            "description": "Total de páginas",
+            "example": 5
+          }
+        },
+        "required": [
+          "page",
+          "limit",
+          "total",
+          "totalPages"
+        ]
+      },
+      "PaginatedProductsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductResponseDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
       "CreateProductDto": {
         "type": "object",
         "properties": {
@@ -1261,113 +3187,6 @@
           "sku"
         ]
       },
-      "ProductResponseDto": {
-        "type": "object",
-        "properties": {
-          "_id": {
-            "type": "string",
-            "description": "ObjectId del producto",
-            "example": "6739f3b2c4e5b8a9d0f12346"
-          },
-          "name": {
-            "type": "string",
-            "example": "Café de origen Huila 500 g"
-          },
-          "description": {
-            "type": "string",
-            "example": "Café especial tostado medio"
-          },
-          "price": {
-            "type": "number",
-            "example": 32000
-          },
-          "stock": {
-            "type": "integer",
-            "example": 120
-          },
-          "category": {
-            "type": "string",
-            "example": "Café"
-          },
-          "sku": {
-            "type": "string",
-            "example": "CAF-HUI-500"
-          },
-          "isActive": {
-            "type": "boolean",
-            "example": true
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-11-17T21:35:00.000Z"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-11-17T21:35:00.000Z"
-          }
-        },
-        "required": [
-          "_id",
-          "name",
-          "price",
-          "stock",
-          "sku",
-          "isActive",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "PaginationMetaDto": {
-        "type": "object",
-        "properties": {
-          "page": {
-            "type": "number",
-            "description": "Página actual",
-            "example": 1
-          },
-          "limit": {
-            "type": "number",
-            "description": "Elementos por página",
-            "example": 10
-          },
-          "total": {
-            "type": "number",
-            "description": "Total de elementos que cumplen el filtro",
-            "example": 42
-          },
-          "totalPages": {
-            "type": "number",
-            "description": "Total de páginas",
-            "example": 5
-          }
-        },
-        "required": [
-          "page",
-          "limit",
-          "total",
-          "totalPages"
-        ]
-      },
-      "PaginatedProductsResponseDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ProductResponseDto"
-            }
-          },
-          "meta": {
-            "$ref": "#/components/schemas/PaginationMetaDto"
-          }
-        },
-        "required": [
-          "data",
-          "meta"
-        ]
-      },
       "UpdateProductDto": {
         "type": "object",
         "properties": {
@@ -1390,12 +3209,6 @@
             "minimum": 0,
             "example": 145000
           },
-          "stock": {
-            "type": "integer",
-            "description": "Unidades disponibles (entero mayor o igual a 0)",
-            "minimum": 0,
-            "example": 40
-          },
           "category": {
             "type": "string",
             "description": "Categoría del producto",
@@ -1417,6 +3230,66 @@
             "example": true
           }
         }
+      },
+      "StockAdjustmentDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "`increase` = entrada de stock; `decrease` = salida",
+            "enum": [
+              "increase",
+              "decrease"
+            ],
+            "example": "decrease"
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "Unidades a sumar o restar",
+            "minimum": 1,
+            "maximum": 100000,
+            "example": 3
+          }
+        },
+        "required": [
+          "type",
+          "quantity"
+        ]
+      },
+      "DiscountDto": {
+        "type": "object",
+        "properties": {
+          "percent": {
+            "type": "integer",
+            "description": "Porcentaje de descuento (entero)",
+            "minimum": 1,
+            "maximum": 90,
+            "example": 15
+          }
+        },
+        "required": [
+          "percent"
+        ]
+      },
+      "ReorderImagesDto": {
+        "type": "object",
+        "properties": {
+          "imageIds": {
+            "description": "Ids de las imágenes actuales del producto en el nuevo orden (la primera es la principal). Deben ser exactamente los actuales, sin repetidos ni faltantes.",
+            "maxItems": 5,
+            "example": [
+              "673a01c9c4e5b8a9d0f12402",
+              "673a01c9c4e5b8a9d0f12401"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "imageIds"
+        ]
       }
     }
   }

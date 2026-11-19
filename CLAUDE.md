@@ -4,36 +4,81 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A Full Stack technical test for Croper. Development is **spec-driven**: each exercise has a spec in `docs/specs/` that is the source of truth for design decisions, and code is implemented one spec task at a time. Docs are written in Spanish.
+A Full Stack technical test for Croper. It has a NestJS + MongoDB API in `backend/`, a React + Vite + Redux Toolkit + Tailwind v4 + Headless UI app in `frontend/`, and theory answers in `docs/respuestas-teoricas.md`.
 
-- `docs/specs/01-backend.md` — Exercise 1: Products REST API (NestJS + MongoDB). Read it before touching backend code.
-- `docs/ia/uso-de-ia.md` — deliverable log of how AI was used (prompts, validation, corrections). Sections marked **[COMPLETAR]** are for the user to fill in with what actually happened; don't invent content for them.
+On top of the exercises it implements spec 03: a small agro marketplace where **sellers** manage their products (stock, discounts, images) and **buyers** browse a catalog. Development is **spec-driven**. Docs and commit messages are written in Spanish; code, names and API messages are in English, and UI texts are in Spanish exactly as the specs write them.
 
-Current state: the backend implements all tasks of `docs/specs/01-backend.md` §12 (business modules live in `backend/src/modules/`), and the frontend implements all tasks of `docs/specs/02-frontend.md` §12. Frontend rules: components never import axios (only `src/api/` may; an oxlint rule enforces it), only the state listed in spec §4.1 goes in Redux, forms use React Hook Form, and theme classes come from `src/components/styles.ts` (don't override a button's display/padding/colors via `className`, since Tailwind doesn't resolve conflicts by order). On this machine the backend runs on `PORT=3001`, so the local `frontend/.env` points `VITE_API_URL` there; the `.env.example` files keep 3000 as in the contract. `backend/src/app.setup.ts` holds the HTTP setup shared by `main.ts` and the e2e tests. `npm run test:e2e` checks the §11 criteria against a local MongoDB (database `productos_db_e2e`). Mongoose `@Prop`s declare `type` explicitly, so schemas don't depend on decorator metadata (older Vitest/esbuild setups don't emit it). Keep Vitest ≥4 and Vite ≥8: `npm audit fix --force` downgrades them and breaks DI and validation in tests.
+**Source of truth:** `docs/specs/api-contract.md` (contract **1.1.0**, prefix `/api/v1`) > spec 03 > specs 01/02 > code. If they disagree, change the contract and the spec minimally and record why.
 
-## How to work on spec tasks
+- `docs/specs/03-mejoras-roles-vendedor-comprador.md`: what the code implements now.
+- `docs/specs/01-backend.md` and `02-frontend.md`: version 1.0, with a table of what changed in 1.1.0 at the top.
+- `docs/specs/IMPLEMENTATION_LOG.md`: decisions D1–D18, one entry per task, and the final verification. Read the decisions before changing behavior.
+- `docs/specs/verificacion-1.1.0.md`: a real API walkthrough (curl + responses).
+- `docs/ia/uso-de-ia.md`: deliverable log of how AI was used. Sections marked **[COMPLETAR]** are for the user to fill in; don't invent content for them.
+- `instructivo.md`: how the user asks for work, with rules and allowed dependencies.
 
-Section 12 of the backend spec lists numbered implementation tasks. The user asks for them one at a time, e.g. "Implement task N of `docs/specs/01-backend.md`". When doing so:
-- Implement only that task; don't get ahead of later tasks.
-- Follow the folder layout in spec §10, the error format in §6, and the security rules in §7.
-- Check the work against the acceptance criteria in §11.
-- Out of scope (don't add): roles/permissions, refresh tokens, image upload, cloud deployment.
-- Open decisions in §13 (hard vs soft delete, open registration, protected GETs) are the user's call; the spec currently picks hard delete, open registration and all product endpoints protected.
+Out of scope: refresh tokens, cloud storage or deployment, carts/orders, admin role, a user with both roles.
 
-## Backend commands
+## Commands
 
-Run from `backend/`. The project is NestJS 12: ESM-only (relative imports end in `.js`), tests on Vitest (`vi.fn()`, not `jest.fn()`), and lint with oxlint. Spec-required scripts: `npm test` (Vitest unit tests for `ProductsService` and `AuthService`), `npm run lint`, and `npm run docs:export` (writes `docs/openapi.json`, which must be kept in sync with the API). Standard NestJS scripts are expected for the rest (`npm run start:dev`, `npm run build`); confirm them in `package.json`. To run a single test file: `npm test -- products.service`.
+MongoDB is needed for the backend, its e2e tests and the seed. Use a local Community Server (no auth; `mongosh` is not installed on this machine) or `docker compose up -d` from the repo root.
 
-Requires a local MongoDB (Community Server, no auth) at the `MONGO_URI` in `.env`. Copy `.env.example` → `.env`. The required variables are `PORT`, `MONGO_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN` and `CORS_ORIGIN`, and the app must refuse to start if `JWT_SECRET` or `MONGO_URI` is missing.
+**Backend** (run from `backend/`; copy `.env.example` → `.env`):
+- `npm run start:dev`, `npm run build`, `npm run lint` (oxlint, type-aware)
+- `npm test` runs the Vitest unit tests. For a single file: `npm test -- products.service`
+- `npm run test:e2e` runs the acceptance criteria against MongoDB. It uses database `productos_db_e2e` and folder `uploads-e2e`, and wipes both. Run it for any backend change: stock concurrency, the conditional image `$push` and real uploads are only tested there.
+- `npm run seed` (`nest build && node dist/scripts/seed.js`) resets `users`, `products` and `uploads/products`, then creates 2 sellers, 1 buyer and 30 products with images. The password is `Clave1234`; the emails are in the backend README.
+- `npm run docs:export` writes `docs/openapi.json`; keep it in sync with the API. `info.version` must match the contract.
 
-Swagger UI: `http://localhost:3000/api/docs` (JSON at `/api/docs-json`). API prefix: `/api/v1`.
+**Frontend** (run from `frontend/`; copy `.env.example` → `.env`):
+- `npm run dev` serves on port 5173, a fixed port because it's the origin the backend's CORS allows.
+- `npm run build` (`tsc -b && vite build`), `npm run lint` (oxlint)
+- `npm test` runs Vitest. For a single file: `npm test -- CatalogPage`
 
-## Backend architecture (per spec)
+On this machine the backend runs on `PORT=3001`, so the local `.env` files use 3001 (`VITE_API_URL`, `PUBLIC_BASE_URL`). The `.env.example` files keep 3000, as in the contract.
 
-- `main.ts` wires the cross-cutting pieces: the global `/api/v1` prefix, a global `ValidationPipe` (`whitelist`, `forbidNonWhitelisted`, `transform`; this is also what blocks Mongo operator injection), `helmet`, CORS restricted to `CORS_ORIGIN`, and Swagger with Bearer auth plus `persistAuthorization`.
-- `common/` holds shared pieces: a global exception filter that produces the single error shape `{statusCode, error, message[], path, timestamp}` and maps Mongo duplicate-key errors to 409 (500s never leak stack or DB details), `ParseObjectIdPipe` (invalid id → 400), and the pagination query DTO.
-- `auth/` depends on `users/`: bcrypt hashing (≥10 rounds), JWT via passport-jwt, `JwtAuthGuard`, and a `@CurrentUser` decorator. Login errors are generic 401s. `password` must never appear in responses, logs or Swagger response schemas.
-- `products/` is fully guarded by `JwtAuthGuard`. `GET /products` supports `page`/`limit`/`search` (case-insensitive on `name`)/`sortBy`/`order` and returns `{data, meta: {page, limit, total, totalPages}}`. `sku` is unique, so duplicates return 409.
-- Throttling: a global limit (~100/min) and a stricter one on `/auth/login` (~5/min → 429).
-- Layering rule: controllers only receive requests and respond, business logic lives in services, and data access goes through Mongoose models injected into services.
-- Swagger is a graded deliverable. Every endpoint needs `@ApiOperation`, documented params and bodies with examples, and every possible response code with a schema. Keep `class-validator` rules and `@ApiProperty` constraints aligned, and build `UpdateProductDto` with `PartialType` from `@nestjs/swagger`.
+Keep Vitest ≥4 and Vite ≥8: `npm audit fix --force` downgrades them and breaks DI and validation in tests.
+
+## Backend architecture
+
+The project uses NestJS 12. It is ESM-only, so relative imports end in `.js`. Tests use Vitest (`vi.fn()`). Modules live in `src/modules/`: `auth`, `users`, `products`, `images`, `storage`.
+
+- **Env:** `PORT`, `MONGO_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `CORS_ORIGIN`, `PUBLIC_BASE_URL` and `UPLOADS_DIR` are all required, and the app refuses to start without them.
+- **HTTP setup:** `src/app.setup.ts` holds the HTTP setup shared by `main.ts` and the e2e tests:
+  - prefix, helmet, CORS, the global `ValidationPipe` (`whitelist`, `forbidNonWhitelisted`, `transform`) and the exception filter;
+  - the public static `/uploads` route, with `Cross-Origin-Resource-Policy: cross-origin`, immutable cache and nosniff.
+  - It takes a `NestExpressApplication`.
+- **Error shape:** a single format, `{statusCode, error, message[], path, timestamp}`. Don't change the filter's format.
+- **Roles:** `role` (`seller` | `buyer`) is on the user and in the JWT. `JwtStrategy` reloads the user from the DB.
+  - `@Roles()` + `RolesGuard` (in `common/`) throw `ForbiddenException()`, which gives the message `"Forbidden"`.
+  - `SellerProductsController` (`/seller/products`) is `@Roles('seller')`. `CatalogController` (`/products`) accepts any logged-in user and only returns active products. `/products/categories` must stay declared before `:id`.
+- **Ownership:** every seller query filters by `{ _id, sellerId }` in the same query, so another seller's product is a 404. `sellerId` only comes from the token.
+- **Responses:** they go through `toProductView`, which turns `sellerId` into `seller: {_id, name}` (never the email) and drops `images[].key`.
+- **Stock:** only set on create, then changed through `stock-adjustments` with an atomic `findOneAndUpdate` (`stock: {$gte: q}`). `UpdateProductDto` omits `stock`.
+- **Price:** `finalPrice` is stored and always recomputed in the same write.
+  - `pricing.ts` has `calculateFinalPrice` (JS) and `finalPriceExpression` (aggregation), the same integer-cents, half-up formula (D1). Don't use `$round`.
+  - PATCH and the discount endpoints are update pipelines: Mongoose 9 needs `updatePipeline: true`, and values go in `$literal`. Build a fresh pipeline array each call, because Mongoose appends the `updatedAt` stage to it.
+- **Images:**
+  - `images/multer.config.ts` (memory storage; limits 1 MB, 1 file, 0 fields; fileFilter → 415) + `ImageFilePipe` (required file, magic numbers via `file-type`) + `ImageProcessingService` (sharp: WebP 1200 px + 400 px thumb, `limitInputPixels`, no metadata).
+  - Max 5 per product via a conditional `$push` (`'images.4': {$exists: false}`).
+  - Files are behind `StorageService` (`LocalDiskStorage`). Delete in the DB first, then the files; a file error is only logged.
+- **Throttling:**
+  - Global 100/min per IP, plus 5/min on login.
+  - Uploads: 20/min per user via `UserThrottlerGuard` on the route, because the global guard runs before auth.
+  - Throttler counters are per route.
+- **Mongoose:** `@Prop`s declare `type` explicitly.
+- **Swagger is graded:** every endpoint needs `@ApiOperation`, documented params and bodies, and every response code with examples (`ApiErrorResponse`). Tags are `Auth`, `Catalog` and `Seller products`. Keep `class-validator` rules and `@ApiProperty` aligned.
+
+## Frontend architecture
+
+- **HTTP:** only `src/api/` may import axios (an oxlint rule enforces it). It has `productsApi` (`/seller/products`) and `catalogApi` (`/products`).
+  - `api/client.ts` attaches the token. On a 401 it runs a session-expired callback that `app/store.ts` passes in, so the client never imports the store.
+  - `utils/errorMessages.ts` maps errors to the exact Spanish texts of contract §6.2, and tells the 409s apart by route.
+- **State:** the store has `auth` (with `role`, `selectRole`, `selectHomePath`, `HOME_PATHS`), `sellerProducts`, `catalog` and `ui`. Only the state listed in the specs goes in Redux.
+  - Row actions (edit, stock, discount, visibility, images) replace the product with the response and never reload the list. Create and delete reload the page.
+  - The store's `serializableCheck` ignores `meta.arg.onProgress` and `meta.arg.file` (upload thunk).
+- **Catalog filters:** they live in the URL. `useCatalogQuery` → `parseCatalogQuery` → `fetchCatalog`; components write the URL, not Redux.
+- **Routes:** in `app/routes.tsx`, with the lazy pages in `app/lazyPages.tsx`. `ProtectedRoute roles={[...]}` sends a wrong role to its home path with a notice. `/` redirects by role.
+- **Forms:** forms use React Hook Form. Use `useWatch`/`getValues`, not `watch` (oxlint flags it for React Compiler).
+- **Styling:** theme classes come from `src/components/styles.ts`. Don't override a button's display, padding or colors via `className`: Tailwind doesn't resolve conflicting classes by order.
+- **Tests:** `src/test/setup.ts` adds `cleanup()` and a `ResizeObserver` stub (Headless UI needs it in jsdom). For file inputs use `userEvent.setup({ applyAccept: false })`.

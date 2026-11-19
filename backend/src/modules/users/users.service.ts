@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { User, UserRecord } from './schemas/user.schema.js';
+import { User, UserRecord, UserRole } from './schemas/user.schema.js';
 
 export interface PublicUser {
   _id: Types.ObjectId;
   email: string;
   name: string;
+  role: UserRole;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -14,6 +15,7 @@ export interface PublicUser {
 export interface CreateUserInput {
   email: string;
   name: string;
+  role: UserRole;
   passwordHash: string;
 }
 
@@ -23,6 +25,7 @@ export function toPublicUser(user: UserRecord): PublicUser {
     _id: user._id,
     email: user.email,
     name: user.name,
+    role: user.role,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -37,6 +40,7 @@ export class UsersService {
     const user = await this.userModel.create({
       email: input.email,
       name: input.name,
+      role: input.role,
       password: input.passwordHash,
     });
     return toPublicUser(user.toObject());

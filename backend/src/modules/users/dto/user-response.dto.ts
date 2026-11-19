@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { USER_ROLES, type UserRole } from '../schemas/user.schema.js';
 
 /** Public user data. `password` is never part of a response. */
 export class UserResponseDto {
@@ -10,6 +11,9 @@ export class UserResponseDto {
 
   @ApiProperty({ example: 'Ana Pérez' })
   name: string;
+
+  @ApiProperty({ enum: USER_ROLES, description: 'Rol elegido al registrarse', example: 'seller' })
+  role: UserRole;
 
   @ApiProperty({ format: 'date-time', example: '2026-11-17T21:30:00.000Z' })
   createdAt: string;

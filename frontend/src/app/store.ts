@@ -1,13 +1,15 @@
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { setupApiClient } from '../api/client';
 import authReducer, { logout, TOKEN_STORAGE_KEY } from '../features/auth/authSlice';
-import productsReducer from '../features/products/productsSlice';
+import catalogReducer from '../features/catalog/catalogSlice';
+import sellerProductsReducer from '../features/seller/sellerProductsSlice';
 import uiReducer, { showNotification } from '../features/ui/uiSlice';
 import { MESSAGES } from '../utils/errorMessages';
 
 const rootReducer = combineReducers({
   auth: authReducer,
-  products: productsReducer,
+  sellerProducts: sellerProductsReducer,
+  catalog: catalogReducer,
   ui: uiReducer,
 });
 
@@ -15,7 +17,18 @@ export type RootState = ReturnType<typeof rootReducer>;
 
 /** Creates a store; tests use it with their own preloaded state. */
 export function setupStore(preloadedState?: Partial<RootState>) {
-  return configureStore({ reducer: rootReducer, preloadedState });
+  return configureStore({
+    reducer: rootReducer,
+    preloadedState,
+    middleware: (getDefaultMiddleware) =>
+      getDefaultMiddleware({
+        serializableCheck: {
+          // uploadImage receives a progress callback and the File to upload; neither is
+          // serializable and neither is stored in the state (spec 03 §13.3).
+          ignoredActionPaths: ['meta.arg.onProgress', 'meta.arg.file'],
+        },
+      }),
+  });
 }
 
 export type AppStore = ReturnType<typeof setupStore>;
