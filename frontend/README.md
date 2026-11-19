@@ -13,6 +13,8 @@ Especificaciones:
 
 ## Capturas
 
+> Se tomaron antes de dos cambios posteriores: el diálogo de imágenes muestra "1 de 5" (hoy el máximo es 4) y la barra del vendedor todavía muestra "Catálogo" (hoy solo ve "Mis productos").
+
 | Escritorio (1280 px) | Móvil (360 px) |
 |---|---|
 | ![Catálogo con panel de filtros](docs/screenshots/catalog-desktop.png) | ![Catálogo en 2 columnas](docs/screenshots/catalog-mobile.png) |
@@ -31,7 +33,7 @@ React 19 + TypeScript (estricto) + Vite · Redux Toolkit (`createSlice` + `creat
 
 ## Requisitos
 
-- Node.js LTS y npm.
+- Node.js 26.13.1 y npm 11.20.0 (las versiones con las que se desarrolló; `package.json` no fija `engines`).
 - El backend corriendo (ver [backend/README.md](../backend/README.md)) con `CORS_ORIGIN=http://localhost:5173`, y con datos de prueba si quieres entrar sin registrarte (`npm run seed` en `backend/`).
 
 ## Instalación y ejecución
@@ -70,7 +72,7 @@ También puedes registrarte eligiendo "Quiero comprar" o "Quiero vender". Para v
 | `npm run dev` | Servidor de desarrollo |
 | `npm run build` | Comprueba tipos (`tsc -b`) y genera `dist/` |
 | `npm run lint` | oxlint. Incluye una regla que **impide importar `axios` fuera de `src/api/`** |
-| `npm test` | Tests de slices, utilidades, componentes y rutas (101 tests) |
+| `npm test` | Tests de slices, utilidades, componentes y rutas |
 | `npm run preview` | Sirve el build de producción |
 
 ## Roles y rutas
@@ -127,8 +129,8 @@ src/
   - Si el backend responde 409, el error se muestra en el diálogo y el stock se actualiza.
 - **Descuento:** porcentaje de 1 a 90 con vista previa en vivo ("$ 145.000 → $ 123.250 (-15 %)"), calculada con la misma fórmula del backend.
 - **Imágenes:**
-  - Hasta 5 por producto; la primera es la principal.
-  - Se puede hacer principal una imagen, o eliminarla con confirmación.
+  - Hasta 4 por producto, con el contador "X de 4"; la primera lleva la etiqueta "Principal". Con 4, la zona de carga se desactiva.
+  - Cada imagen se puede eliminar con confirmación.
   - Para agregar, se arrastran o se eligen varios archivos. Se validan antes de subir (JPG/PNG/WebP, máximo 1 MB): los rechazados no se envían, y los demás se suben uno por uno con su barra de progreso.
   - Después de crear un producto el diálogo se abre solo.
 - Al editar, el stock es solo lectura, con un enlace "Ajustar stock".
@@ -139,7 +141,7 @@ src/
 - **Filtros:** categoría, rango de precio sobre el precio final, solo con descuento y solo disponibles.
   - En escritorio, panel fijo a la izquierda. Debajo de 1024 px, el botón "Filtros (n)" abre un panel lateral con "Aplicar" y "Limpiar".
   - Encima de la grilla van el buscador (400 ms de espera), el orden, el total y los chips de los filtros activos.
-- **Tarjetas:** imagen cuadrada con `loading="lazy"`, etiqueta de descuento, capa "Agotado", nombre en 2 líneas, categoría, vendedor y precio.
+- **Tarjetas:** imagen cuadrada con `loading="lazy"` que rota cada 3 segundos si hay más de una (se pausa con el puntero o el foco y no rota con "reducir movimiento"), etiqueta de descuento, capa "Agotado", nombre en 2 líneas, categoría, vendedor y precio.
 - **Detalle:** galería con miniaturas elegibles con clic o con las flechas, precio, disponibilidad ("Disponible · 12 unidades" o "Agotado") y descripción. "← Volver al catálogo" conserva los filtros.
 - **Estados:** esqueletos, recarga sin parpadeo, "No encontramos productos con esos filtros", "Todavía no hay productos publicados" y error con "Reintentar".
 
@@ -160,7 +162,7 @@ src/
 
 - `npm test`, `npm run lint` y `npm run build` sin errores.
 - Las capturas salen de la app real (backend con `npm run seed`, Chrome sin interfaz a 1280 y 360 px), en esa misma prueba se comprobó:
-  - las 10 imágenes visibles de `/uploads` cargan desde `localhost:5173`;
+  - las imágenes visibles cargan desde `localhost:5173`;
   - a 360 px el catálogo tiene 2 columnas, el panel de filtros oculto y sin desborde horizontal;
   - a 1280 px tiene 4 columnas y el panel fijo;
   - un comprador en `/seller/products` termina en `/catalog` con el aviso.

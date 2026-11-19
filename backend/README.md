@@ -8,7 +8,7 @@ API REST con **NestJS 12** y **MongoDB** para un pequeño marketplace agro (cont
 
 ## Requisitos
 
-- Node.js LTS y npm
+- Node.js 26.13.1 y npm 11.20.0 (las versiones con las que se desarrolló; `package.json` no fija `engines`)
 - MongoDB en local (Community Server, sin autenticación) o con Docker (`docker compose up -d` desde la raíz del repo)
 
 ## Instalación
@@ -61,10 +61,9 @@ Error: Invalid environment configuration (see backend/.env.example):
 
 ## Base de datos y datos de prueba
 
-La versión 1.1.0 (vendedores y compradores) **parte de una base vacía**: no hay migración desde la 1.0.0. Antes de usarla por primera vez, borra la base vieja o ejecuta el seed, que deja siempre el mismo estado:
+La versión 1.1.0 (vendedores y compradores) **parte de una base vacía**: no hay migración desde la 1.0.0. Antes de usarla por primera vez, ejecuta el seed, que deja siempre el mismo estado:
 
 ```bash
-mongosh productos_db --eval "db.dropDatabase()"   # opcional si tienes mongosh
 npm run seed
 ```
 

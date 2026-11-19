@@ -30,6 +30,7 @@ MongoDB is needed for the backend, its e2e tests and the seed. Use a local Commu
 - `npm test` runs the Vitest unit tests. For a single file: `npm test -- products.service`
 - `npm run test:e2e` runs the acceptance criteria against MongoDB. It uses database `productos_db_e2e` and wipes it. Run it for any backend change: stock concurrency, the conditional image `$push`, real uploads and the public image endpoint are only tested there.
 - `npm run seed` (`nest build && node dist/scripts/seed.js`) resets `users` and `products`, then creates 2 sellers, 1 buyer and 30 products with images. The password is `Clave1234`; the emails are in the backend README.
+  - `seed/products.json` is the only seed source. Each product carries its images already processed to WebP, in base64 (`mimeType`, `data`, `thumbData`, `width`, `height`); the seed only adds `_id`, `url` and `thumbUrl`. There are no image files and no generator script, so to change a seed image, process it with `ImageProcessingService` and paste the base64 into the JSON.
 - `npm run docs:export` writes `docs/openapi.json`; keep it in sync with the API. `info.version` must match the contract.
 
 **Frontend** (run from `frontend/`; copy `.env.example` → `.env`):
